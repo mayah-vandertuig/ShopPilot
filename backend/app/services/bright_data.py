@@ -21,7 +21,7 @@ class BrightDataService:
     if self._client is None and self.is_available:
       try:
         from brightdata import SyncBrightDataClient
-        self._client = SyncBrightDataClient(token=self.settings.bright_data_api_key)
+        self._client = SyncBrightDataClient(token=self.settings.bright_data_token)
       except Exception as e:
         logger.warning("Bright Data client init failed: %s", e)
     return self._client

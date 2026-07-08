@@ -7,12 +7,17 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+    model_config = SettingsConfigDict(
+        env_file=(".env", "../.env"),
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
 
     openai_api_key: str = ""
     bright_data_api_key: str = ""
+    brightdata_api_token: str = ""
     database_url: str = "sqlite:///./shoppilot.db"
-    backend_cors_origins: str = "http://localhost:3000"
+    backend_cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
 
     codex_agents_enabled: bool = False
     codex_mode: str = "subprocess"
@@ -30,7 +35,11 @@ class Settings(BaseSettings):
 
     @property
     def has_bright_data(self) -> bool:
-        return bool(self.bright_data_api_key)
+        return bool(self.bright_data_api_key or self.brightdata_api_token)
+
+    @property
+    def bright_data_token(self) -> str:
+        return self.bright_data_api_key or self.brightdata_api_token
 
 
 @lru_cache
