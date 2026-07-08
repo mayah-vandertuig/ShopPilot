@@ -18,6 +18,7 @@ from app.schemas import (
   ListingRead,
   PricingSummary,
 )
+from app.exceptions import IngestionError
 from app.services.analysis_runner import AnalysisRunner
 from app.agents.listing_advisor import ListingAdvisorAgent
 from app.agents.product_expansion_agent import ProductExpansionAgent
@@ -68,10 +69,11 @@ def _analysis_to_detail(analysis: Analysis, db: Session, warning: str = None) ->
 @router.post("", response_model=AnalysisCreateResponse)
 def create_analysis(request: AnalysisCreate, db: Session = Depends(get_db)):
   runner = AnalysisRunner()
-  analysis = runner.run(db, request)
+  try:
+    analysis = runner.run(db, request)
+  except IngestionError as e:
+    raise HTTPException(status_code=422, detail=e.message) from e
   warning = getattr(analysis, "_warning", None)
-  if analysis.data_source == "mock" and not warning:
-    warning = "Using mock sample data. Set BRIGHT_DATA_API_KEY for live marketplace data."
   return _analysis_to_detail(analysis, db, warning)
 
 
@@ -121,7 +123,10 @@ def generate_recommendations(analysis_id: int, db: Session = Depends(get_db)):
     "keyword_summary": keywords,
   }
 
-  recs = ai.generate_listing_recommendations(context)
+  try:
+    recs = ai.generate_listing_recommendations(context)
+  except IngestionError as e:
+    raise HTTPException(status_code=422, detail=e.message) from e
   expansion_result = expansion.expand(
     [{"title": l.title, "price": l.price} for l in listings],
     [],
@@ -158,5 +163,5 @@ def generate_recommendations(analysis_id: int, db: Session = Depends(get_db)):
       for r in new_recs
     ],
     "expansion": expansion_result,
-    "data_source": "live" if ai.settings.has_openai else "mock",
+    "data_source": "live",
   }

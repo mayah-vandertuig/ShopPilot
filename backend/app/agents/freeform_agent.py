@@ -15,5 +15,5 @@ class FreeformAgent:
       "answer": result.get("answer", ""),
       "supporting_evidence": result.get("supporting_evidence", []),
       "uncertainty_notes": result.get("uncertainty_notes", []),
-      "data_source": "live" if self.ai.settings.has_openai else "mock",
+      "data_source": "live",
     }

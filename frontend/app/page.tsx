@@ -7,12 +7,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
+import { Badge, dataSourceBadgeVariant, dataSourceLabel } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { createAnalysis, getAnalyses } from "@/lib/api";
 import { PLATFORMS, INPUT_TYPES, COUNTRIES, CURRENCIES, type Analysis } from "@/lib/types";
 import { formatDate } from "@/lib/utils";
 import {
-  BarChart3, Search, DollarSign, AlertTriangle, TrendingUp, Sparkles, Package, Wrench, Loader2,
+  BarChart3, Search, DollarSign, AlertTriangle, TrendingUp, Sparkles, Package, Wrench, Loader2, ArrowRight,
 } from "lucide-react";
 
 const features = [
@@ -35,9 +36,13 @@ export default function HomePage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [recent, setRecent] = useState<Analysis[]>([]);
+  const [loadingRecent, setLoadingRecent] = useState(true);
 
   useEffect(() => {
-    getAnalyses().then(setRecent).catch(() => {});
+    getAnalyses()
+      .then(setRecent)
+      .catch(() => {})
+      .finally(() => setLoadingRecent(false));
   }, []);
 
   const handleAnalyze = async () => {
@@ -60,107 +65,126 @@ export default function HomePage() {
   };
 
   return (
-    <Shell title="ShopPilot">
-      <div className="max-w-6xl mx-auto space-y-8">
-        <div className="text-center space-y-3 py-6">
-          <h2 className="text-3xl font-bold tracking-tight">
-            AI-Powered Marketplace Intelligence
+    <Shell title="Overview" subtitle="AI marketplace intelligence for online sellers">
+      <div className="mx-auto max-w-6xl space-y-10">
+        <div className="space-y-3">
+          <p className="text-sm font-semibold text-primary">ShopPilot</p>
+          <h2 className="text-3xl font-bold tracking-tight text-foreground lg:text-4xl">
+            AI marketplace intelligence for online sellers.
           </h2>
-          <p className="text-muted-foreground max-w-2xl mx-auto">
-            Analyze competitors, optimize pricing, audit listings, discover trends, and get AI recommendations across Etsy, Google Shopping, and more.
+          <p className="text-base text-muted-foreground max-w-3xl leading-relaxed">
+            Analyze listings, competitors, pricing, keywords, and trends across marketplaces.
           </p>
         </div>
 
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
+            <CardTitle className="flex items-center gap-2 text-lg">
               <Search className="h-5 w-5 text-primary" />
-              Start New Analysis
+              Start new analysis
             </CardTitle>
             <CardDescription>Enter a shop URL, product URL, marketplace URL, or niche keyword.</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              <div>
-                <label className="text-sm font-medium mb-1.5 block">Platform</label>
+            <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+              <Field label="Platform">
                 <Select value={platform} onChange={(e) => setPlatform(e.target.value)}>
                   {PLATFORMS.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
                 </Select>
-              </div>
-              <div>
-                <label className="text-sm font-medium mb-1.5 block">Input Type</label>
+              </Field>
+              <Field label="Input type">
                 <Select value={inputType} onChange={(e) => setInputType(e.target.value)}>
                   {INPUT_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
                 </Select>
-              </div>
-              <div>
-                <label className="text-sm font-medium mb-1.5 block">Input Value</label>
+              </Field>
+              <Field label="URL or keyword">
                 <Input value={inputValue} onChange={(e) => setInputValue(e.target.value)} placeholder="minimalist wall art" />
-              </div>
-              <div>
-                <label className="text-sm font-medium mb-1.5 block">Country</label>
+              </Field>
+              <Field label="Country">
                 <Select value={country} onChange={(e) => setCountry(e.target.value)}>
                   {COUNTRIES.map((c) => <option key={c} value={c}>{c}</option>)}
                 </Select>
-              </div>
-              <div>
-                <label className="text-sm font-medium mb-1.5 block">Currency</label>
+              </Field>
+              <Field label="Currency">
                 <Select value={currency} onChange={(e) => setCurrency(e.target.value)}>
                   {CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}
                 </Select>
-              </div>
+              </Field>
               <div className="flex items-end">
                 <Button onClick={handleAnalyze} disabled={loading || !inputValue} className="w-full" size="lg">
-                  {loading ? <><Loader2 className="h-4 w-4 animate-spin mr-2" />Analyzing...</> : "Analyze Market"}
+                  {loading ? <><Loader2 className="h-4 w-4 animate-spin mr-2" />Analyzing...</> : "Analyze market"}
                 </Button>
               </div>
             </div>
-            {error && <p className="text-sm text-red-600 mt-4">{error}</p>}
+            {error && <div className="alert-danger mt-5">{error}</div>}
           </CardContent>
         </Card>
 
-        {recent.length > 0 && (
-          <Card>
-            <CardHeader><CardTitle>Recent Analyses</CardTitle></CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                {recent.slice(0, 5).map((a) => (
-                  <button
-                    key={a.id}
-                    onClick={() => router.push(`/analyses/${a.id}`)}
-                    className="w-full flex items-center justify-between rounded-lg border border-border p-4 hover:bg-muted/50 transition-colors text-left"
-                  >
-                    <div>
-                      <p className="font-medium">{a.input_value}</p>
-                      <p className="text-sm text-muted-foreground">{a.platform} · {formatDate(a.created_at)}</p>
-                    </div>
-                    <Badge variant={a.data_source === "live" ? "success" : "warning"}>{a.data_source}</Badge>
-                  </button>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
+        <div>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-foreground">Recent analyses</h3>
+          </div>
+          {loadingRecent ? (
+            <div className="space-y-3">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <Skeleton key={i} className="h-16 w-full rounded-xl" />
+              ))}
+            </div>
+          ) : recent.length > 0 ? (
+            <div className="space-y-2">
+              {recent.slice(0, 5).map((a) => (
+                <button
+                  key={a.id}
+                  onClick={() => router.push(`/analyses/${a.id}`)}
+                  className="w-full flex items-center justify-between rounded-xl border border-border bg-white p-4 hover:shadow-card-hover transition-all text-left group"
+                >
+                  <div className="min-w-0">
+                    <p className="font-medium text-foreground truncate">{a.input_value}</p>
+                    <p className="text-sm text-muted-foreground mt-0.5">
+                      {a.platform.replace("_", " ")} · {formatDate(a.created_at)}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3 shrink-0 ml-4">
+                    <Badge variant={dataSourceBadgeVariant(a.data_source)}>{dataSourceLabel(a.data_source)}</Badge>
+                    <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
+                  </div>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div className="rounded-xl border border-dashed border-border bg-white px-6 py-10 text-center">
+              <p className="text-sm text-muted-foreground">No analyses yet. Run your first market analysis above.</p>
+            </div>
+          )}
+        </div>
 
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {features.map((f) => {
-            const Icon = f.icon;
-            return (
-              <Card key={f.title}>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-base">
-                    <Icon className="h-4 w-4 text-primary" />
-                    {f.title}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-muted-foreground">{f.desc}</p>
-                </CardContent>
-              </Card>
-            );
-          })}
+        <div>
+          <h3 className="text-lg font-semibold text-foreground mb-4">Platform capabilities</h3>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {features.map((f) => {
+              const Icon = f.icon;
+              return (
+                <div key={f.title} className="dashboard-card p-5 hover:shadow-card-hover transition-shadow">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary mb-3">
+                    <Icon className="h-4 w-4" />
+                  </div>
+                  <h4 className="text-sm font-semibold text-foreground">{f.title}</h4>
+                  <p className="text-sm text-muted-foreground mt-1.5 leading-relaxed">{f.desc}</p>
+                </div>
+              );
+            })}
+          </div>
         </div>
       </div>
     </Shell>
+  );
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <label className="text-sm font-medium text-foreground mb-1.5 block">{label}</label>
+      {children}
+    </div>
   );
 }

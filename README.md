@@ -27,7 +27,7 @@ Online sellers compete across fragmented marketplaces with limited visibility in
 - **AI recommendations** — OpenAI-powered listing and expansion advice grounded in collected data
 - **Free-form Q&A** — Ask questions about your market analysis
 - **Codex engineering agents** — Optional developer tools for adapter repair and test generation
-- **Mock fallback** — Fully functional without API keys for GitHub review
+- **Live data only** — Requires Bright Data for marketplace collection and OpenAI for AI features
 
 ## Architecture
 
@@ -69,7 +69,7 @@ flowchart LR
 
 1. User enters a shop URL, product URL, marketplace URL, or niche keyword
 2. User selects a platform (Etsy, Google Shopping, etc.)
-3. ShopPilot collects marketplace data via Bright Data (or mock fallback)
+3. ShopPilot collects marketplace data via Bright Data
 4. Data is normalized into a shared product schema
 5. Analysis engine computes pricing, keywords, competitors, issues, and trends
 6. Dashboard displays insights with drill-down into individual listings
@@ -89,7 +89,6 @@ flowchart LR
 | Shopify | 🔧 Stub + generic fallback |
 | Shopee | 🔧 Stub + generic fallback |
 | TikTok Shop | 🔧 Stub + generic fallback |
-| Mock | ✅ Always available fallback |
 
 ## Quickstart
 
@@ -97,8 +96,8 @@ flowchart LR
 
 - Python 3.11+
 - Node.js 20+
-- (Optional) Bright Data API key
-- (Optional) OpenAI API key
+- Bright Data API key (`BRIGHT_DATA_API_KEY` or `BRIGHTDATA_API_TOKEN`)
+- OpenAI API key (`OPENAI_API_KEY`)
 
 ### Setup
 
@@ -116,7 +115,7 @@ make backend
 make frontend
 ```
 
-Open [http://localhost:3000](http://localhost:3000) — the app works immediately with mock data.
+Open [http://localhost:3000](http://localhost:3000) — analyses require live Bright Data collection.
 
 ### Docker
 
@@ -128,8 +127,8 @@ docker compose up --build
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `OPENAI_API_KEY` | No | — | Enables live AI recommendations |
-| `BRIGHT_DATA_API_KEY` | No | — | Enables live marketplace scraping |
+| `OPENAI_API_KEY` | Yes (for AI) | — | AI recommendations and free-form Q&A |
+| `BRIGHT_DATA_API_KEY` or `BRIGHTDATA_API_TOKEN` | Yes (for analyses) | — | Live marketplace scraping |
 | `DATABASE_URL` | No | `sqlite:///./shoppilot.db` | Database connection |
 | `BACKEND_CORS_ORIGINS` | No | `http://localhost:3000` | CORS origins |
 | `CODEX_AGENTS_ENABLED` | No | `false` | Enable Codex engineering agents |

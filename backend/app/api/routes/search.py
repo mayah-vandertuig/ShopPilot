@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.agents.freeform_agent import FreeformAgent
 from app.database import get_db
+from app.exceptions import IngestionError
 from app.models.database import Analysis, Competitor, Listing
 from app.schemas import FreeformSearchRequest, FreeformSearchResponse
 
@@ -33,5 +34,8 @@ def freeform_search(request: FreeformSearchRequest, db: Session = Depends(get_db
   }
 
   agent = FreeformAgent()
-  result = agent.ask(context, request.question)
+  try:
+    result = agent.ask(context, request.question)
+  except IngestionError as e:
+    raise HTTPException(status_code=422, detail=e.message) from e
   return FreeformSearchResponse(**result)

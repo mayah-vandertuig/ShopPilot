@@ -4,7 +4,7 @@ ShopPilot uses OpenAI for seller-facing recommendations. All agents are grounded
 
 ## Configuration
 
-Set `OPENAI_API_KEY` in `.env`. Without it, agents return structured mock recommendations.
+Set `OPENAI_API_KEY` in `.env`. AI endpoints return an error if the key is missing or the request fails.
 
 ## Agents
 
@@ -28,4 +28,4 @@ Set `OPENAI_API_KEY` in `.env`. Without it, agents return structured mock recomm
 
 - Agents receive only data from the current analysis
 - They must not invent competitor facts
-- Missing API key → clear message + mock fallback
+- Missing API key → API returns a clear error

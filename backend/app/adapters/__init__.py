@@ -8,7 +8,6 @@ from app.adapters.ebay import EbayAdapter
 from app.adapters.etsy import EtsyAdapter
 from app.adapters.generic_marketplace import GenericMarketplaceAdapter
 from app.adapters.google_shopping import GoogleShoppingAdapter
-from app.adapters.mock import MockAdapter
 from app.adapters.shopee import ShopeeAdapter
 from app.adapters.shopify import ShopifyAdapter
 from app.adapters.tiktok_shop import TikTokShopAdapter
@@ -22,7 +21,6 @@ ADAPTER_REGISTRY: Dict[str, Type[BaseMarketplaceAdapter]] = {
     "shopify": ShopifyAdapter,
     "shopee": ShopeeAdapter,
     "tiktok_shop": TikTokShopAdapter,
-    "mock": MockAdapter,
 }
 
 

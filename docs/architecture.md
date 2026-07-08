@@ -40,6 +40,6 @@ All adapters inherit from `BaseMarketplaceAdapter`:
 
 Register new adapters in `adapters/__init__.py`.
 
-## Mock Fallback
+## Live Data Only
 
-When Bright Data is unavailable or parsing fails, `MockAdapter` loads seed data from `seed/sample_marketplace_data.json`.
+ShopPilot requires successful Bright Data collection and adapter parsing. There is no mock marketplace fallback.

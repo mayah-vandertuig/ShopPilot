@@ -2,7 +2,7 @@
 
 ## v1.0 (Current)
 - [x] Etsy, Google Shopping, Generic adapters
-- [x] Mock fallback data
+- [x] Live-data-only marketplace ingestion
 - [x] Pricing, keyword, competitor, listing audit analysis
 - [x] OpenAI product intelligence agents
 - [x] Codex engineering agents (disabled by default)

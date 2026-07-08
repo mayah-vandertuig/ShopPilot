@@ -19,7 +19,7 @@ class Analysis(Base):
     country = Column(String(10), default="US")
     currency = Column(String(10), default="USD")
     status = Column(String(50), default="completed")
-    data_source = Column(String(20), default="mock")
+    data_source = Column(String(20), default="live")
     pricing_summary_json = Column(Text, default="{}")
     keyword_summary_json = Column(Text, default="{}")
     created_at = Column(DateTime, default=datetime.utcnow)

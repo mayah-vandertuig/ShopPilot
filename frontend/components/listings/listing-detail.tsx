@@ -1,48 +1,72 @@
 "use client";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { formatCurrency } from "@/lib/utils";
 import type { Listing } from "@/lib/types";
-import { X } from "lucide-react";
+import { X, ExternalLink } from "lucide-react";
 
 export function ListingDetail({ listing, onClose }: { listing: Listing; onClose: () => void }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-        <CardHeader className="flex flex-row items-start justify-between">
+    <div className="fixed inset-0 z-50 flex justify-end bg-foreground/20 backdrop-blur-sm" onClick={onClose}>
+      <div
+        className="h-full w-full max-w-lg overflow-y-auto bg-white shadow-2xl border-l border-border"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="sticky top-0 flex items-center justify-between border-b border-border bg-white px-6 py-4">
+          <h3 className="font-semibold text-foreground">Listing details</h3>
+          <Button variant="ghost" size="sm" onClick={onClose}>
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+        <div className="p-6 space-y-6">
+          {listing.image_url && (
+            <img src={listing.image_url} alt={listing.title} className="w-full rounded-xl border border-border object-cover max-h-56" />
+          )}
           <div>
-            <CardTitle className="text-lg">{listing.title}</CardTitle>
+            <h4 className="text-lg font-semibold text-foreground leading-snug">{listing.title}</h4>
             <p className="text-sm text-muted-foreground mt-1">{listing.shop_name}</p>
           </div>
-          <Button variant="ghost" size="sm" onClick={onClose}><X className="h-4 w-4" /></Button>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {listing.image_url && (
-            <img src={listing.image_url} alt={listing.title} className="rounded-lg w-full max-h-48 object-cover" />
-          )}
-          <div className="grid grid-cols-3 gap-4">
-            <div><p className="text-sm text-muted-foreground">Price</p><p className="font-semibold">{formatCurrency(listing.price)}</p></div>
-            <div><p className="text-sm text-muted-foreground">Rating</p><p className="font-semibold">{listing.rating || "—"}</p></div>
-            <div><p className="text-sm text-muted-foreground">Reviews</p><p className="font-semibold">{listing.review_count || "—"}</p></div>
+          <div className="grid grid-cols-3 gap-3">
+            {[
+              { label: "Price", value: formatCurrency(listing.price, listing.currency) },
+              { label: "Rating", value: listing.rating > 0 ? listing.rating.toFixed(1) : "—" },
+              { label: "Reviews", value: listing.review_count || "—" },
+            ].map((item) => (
+              <div key={item.label} className="rounded-xl border border-border bg-muted/30 p-3 text-center">
+                <p className="text-xs text-muted-foreground">{item.label}</p>
+                <p className="font-semibold text-foreground mt-1">{item.value}</p>
+              </div>
+            ))}
           </div>
           {listing.description && (
             <div>
-              <p className="text-sm font-medium mb-1">Description</p>
-              <p className="text-sm text-muted-foreground">{listing.description}</p>
+              <p className="text-sm font-semibold text-foreground mb-2">Description</p>
+              <p className="text-sm text-muted-foreground leading-relaxed">{listing.description}</p>
             </div>
           )}
           {listing.tags.length > 0 && (
             <div>
-              <p className="text-sm font-medium mb-2">Tags</p>
-              <div className="flex flex-wrap gap-1">
-                {listing.tags.map((t) => <Badge key={t} variant="outline">{t}</Badge>)}
+              <p className="text-sm font-semibold text-foreground mb-2">Tags</p>
+              <div className="flex flex-wrap gap-1.5">
+                {listing.tags.map((t) => (
+                  <Badge key={t} variant="outline">{t}</Badge>
+                ))}
               </div>
             </div>
           )}
-        </CardContent>
-      </Card>
+          {listing.url && (
+            <a
+              href={listing.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline"
+            >
+              View on marketplace <ExternalLink className="h-3.5 w-3.5" />
+            </a>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

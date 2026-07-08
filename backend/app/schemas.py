@@ -138,7 +138,7 @@ class AnalysisRead(BaseModel):
     country: str
     currency: str
     status: str
-    data_source: str = "mock"
+    data_source: str = "live"
     created_at: datetime
     updated_at: datetime
     pricing_summary: Optional[PricingSummary] = None
@@ -169,7 +169,7 @@ class FreeformSearchResponse(BaseModel):
     answer: str
     supporting_evidence: List[str] = Field(default_factory=list)
     uncertainty_notes: List[str] = Field(default_factory=list)
-    data_source: str = "mock"
+    data_source: str = "live"
 
 
 class CodexStatusResponse(BaseModel):

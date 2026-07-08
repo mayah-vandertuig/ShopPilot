@@ -4,13 +4,12 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
-from app.database import Base, engine, SessionLocal
+from app.database import Base, engine
 from app.schemas import ProductListingSchema
 from app.analysis.pricing import calculate_pricing_summary
 from app.analysis.keywords import extract_keywords
 from app.analysis.competitors import analyze_competitors
 from app.analysis.listing_audit import audit_listings
-from app.adapters.mock import MockAdapter
 
 
 @pytest.fixture
@@ -61,14 +60,6 @@ def test_listing_audit(sample_listings):
   assert isinstance(issues, list)
 
 
-def test_mock_adapter():
-  adapter = MockAdapter()
-  listings = adapter.parse_listings("")
-  assert len(listings) >= 25
-  assert listings[0].title
-  assert listings[0].price > 0
-
-
 def test_competitor_grouping(sample_listings):
   competitors = analyze_competitors(sample_listings, 1, "etsy")
   assert len(competitors) == 3
@@ -95,7 +86,22 @@ def test_codex_repair_disabled(client):
   assert response.json()["enabled"] is False
 
 
-def test_create_analysis(client):
+def test_create_analysis_requires_live_data(client, monkeypatch):
+  def fake_collect(self, platform, input_type, input_value, country):
+    listings = [
+      ProductListingSchema(
+        platform="etsy",
+        title=f"Live Listing {i}",
+        shop_name="Live Shop",
+        price=20.0 + i,
+        url=f"https://example.com/{i}",
+      )
+      for i in range(3)
+    ]
+    return listings, "live", ""
+
+  monkeypatch.setattr("app.services.ingestion.IngestionService.collect", fake_collect)
+
   response = client.post("/api/analyses", json={
     "platform": "etsy",
     "input_type": "keyword",
@@ -105,6 +111,24 @@ def test_create_analysis(client):
   })
   assert response.status_code == 200
   data = response.json()
-  assert data["id"] > 0
-  assert len(data["listings"]) >= 25
-  assert data["pricing_summary"]["average_price"] > 0
+  assert data["data_source"] == "live"
+  assert len(data["listings"]) == 3
+
+
+def test_create_analysis_fails_without_live_data(client, monkeypatch):
+  from app.exceptions import IngestionError
+
+  def failing_collect(self, platform, input_type, input_value, country):
+    raise IngestionError("Bright Data unavailable")
+
+  monkeypatch.setattr("app.services.ingestion.IngestionService.collect", failing_collect)
+
+  response = client.post("/api/analyses", json={
+    "platform": "etsy",
+    "input_type": "keyword",
+    "input_value": "minimalist wall art",
+    "country": "US",
+    "currency": "USD",
+  })
+  assert response.status_code == 422
+  assert "Bright Data unavailable" in response.json()["detail"]
