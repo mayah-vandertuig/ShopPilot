@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 
 
 class InputType(str, Enum):
+    shop_name = "shop_name"
     shop_url = "shop_url"
     product_url = "product_url"
     marketplace_url = "marketplace_url"

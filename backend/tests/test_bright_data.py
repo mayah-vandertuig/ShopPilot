@@ -4,6 +4,7 @@ from unittest.mock import MagicMock, patch
 
 from app.services.bright_data import (
   BrightDataService,
+  CLIENT_TIMEOUT,
   _content_from_crawl_result,
   _content_from_scrape_result,
 )
@@ -27,23 +28,30 @@ def test_content_from_crawl_result_prefers_page_html():
   assert content == "<html>etsy</html>"
 
 
-def test_scrape_url_falls_back_to_crawler(monkeypatch):
+def test_sync_client_uses_extended_timeout():
+  with patch("brightdata.SyncBrightDataClient") as mock_ctor:
+    mock_cm = MagicMock()
+    mock_ctor.return_value = mock_cm
+    from app.services.bright_data import _sync_client
+
+    with _sync_client("test-token"):
+      pass
+
+    mock_ctor.assert_called_once_with(token="test-token", timeout=CLIENT_TIMEOUT)
+
+
+def test_etsy_search_prefers_unlocker_before_crawler(monkeypatch):
   monkeypatch.setenv("BRIGHTDATA_API_TOKEN", "test-token")
 
   from app.config import get_settings
   get_settings.cache_clear()
 
-  empty_result = MagicMock()
-  empty_result.success = True
-  empty_result.data = ""
-
-  crawl_result = MagicMock()
-  crawl_result.success = True
-  crawl_result.data = [{"page_html": "<html>etsy listing</html>"}]
+  unlocker_result = MagicMock()
+  unlocker_result.success = True
+  unlocker_result.data = "<html>etsy search</html>"
 
   mock_client = MagicMock()
-  mock_client.scrape_url.return_value = empty_result
-  mock_client.crawler.crawl.return_value = crawl_result
+  mock_client.scrape_url.return_value = unlocker_result
 
   mock_cm = MagicMock()
   mock_cm.__enter__.return_value = mock_client
@@ -59,7 +67,8 @@ def test_scrape_url_falls_back_to_crawler(monkeypatch):
 
   assert error is None
   assert source == "live"
-  assert "etsy listing" in content
-  mock_client.crawler.crawl.assert_called_once()
+  assert "etsy search" in content
+  mock_client.scrape_url.assert_called()
+  mock_client.crawler.trigger.assert_not_called()
 
   get_settings.cache_clear()

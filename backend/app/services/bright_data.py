@@ -10,8 +10,11 @@ from app.config import get_settings
 
 logger = logging.getLogger(__name__)
 
+# Bright Data SDK default timeout is 30s — too low for Etsy.
+CLIENT_TIMEOUT = 180
 SCRAPE_POLL_TIMEOUT = 180
 UNLOCKER_TIMEOUT = 120
+CRAWLER_POLL_TIMEOUT = 180
 ETSY_PRODUCTS_DATASET_ID = "gd_ltppk0jdv1jqz25mz"
 
 
@@ -27,7 +30,7 @@ def _sdk_import_error() -> Optional[str]:
 def _sync_client(token: str) -> Iterator[Any]:
   from brightdata import SyncBrightDataClient
 
-  with SyncBrightDataClient(token=token) as client:
+  with SyncBrightDataClient(token=token, timeout=CLIENT_TIMEOUT) as client:
     yield client
 
 
@@ -116,17 +119,19 @@ class BrightDataService:
   def _attempts_for_url(self, url: str, platform: str) -> List[str]:
     is_etsy = platform == "etsy" or _is_etsy_url(url)
     if is_etsy and "/listing/" in url:
-      return ["etsy_dataset", "crawler", "unlocker_async", "unlocker_sync"]
+      return ["etsy_dataset", "unlocker_async", "unlocker_sync", "crawler_async"]
     if is_etsy:
-      return ["crawler", "unlocker_async", "unlocker_sync"]
-    return ["unlocker_sync", "unlocker_async", "crawler"]
+      # Search/shop pages: unlocker is faster and avoids the crawler's 30s inline timeout.
+      return ["unlocker_async", "unlocker_sync", "crawler_async"]
+    return ["unlocker_sync", "unlocker_async", "crawler_async"]
 
   def _try_etsy_dataset(self, client: Any, url: str) -> Tuple[str, Optional[str]]:
     result = _dataset_scrape_by_url(client, ETSY_PRODUCTS_DATASET_ID, url)
     return _content_from_scrape_result(result)
 
-  def _try_crawler(self, client: Any, url: str) -> Tuple[str, Optional[str]]:
-    result = client.crawler.crawl(url)
+  def _try_crawler_async(self, client: Any, url: str) -> Tuple[str, Optional[str]]:
+    job = client.crawler.trigger(url)
+    result = client.crawler.download(job.snapshot_id, poll_timeout=CRAWLER_POLL_TIMEOUT)
     return _content_from_crawl_result(result)
 
   def _try_unlocker(self, client: Any, url: str, country: str, mode: str) -> Tuple[str, Optional[str]]:
@@ -167,8 +172,8 @@ class BrightDataService:
           try:
             if attempt == "etsy_dataset":
               content, error = self._try_etsy_dataset(client, url)
-            elif attempt == "crawler":
-              content, error = self._try_crawler(client, url)
+            elif attempt == "crawler_async":
+              content, error = self._try_crawler_async(client, url)
             elif attempt == "unlocker_async":
               content, error = self._try_unlocker(client, url, country, mode="async")
             else:
@@ -203,6 +208,9 @@ class BrightDataService:
       return [], "failed", error
     listings = adapter.parse_listings(content)
     if not listings:
+      block_reason = getattr(adapter, "detect_block_page", lambda _content: None)(content)
+      if block_reason:
+        return [], "failed", block_reason
       return [], "failed", (
         "Live page was scraped but the adapter could not parse listings. "
         "The marketplace HTML may have changed or blocked the request."

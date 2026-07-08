@@ -1,14 +1,22 @@
 """Etsy marketplace adapter."""
 
+import html
 import json
 import re
 from typing import Any, List
-from urllib.parse import quote_plus
+from urllib.parse import quote_plus, urlparse
 
 from bs4 import BeautifulSoup
 
 from app.adapters.base import BaseMarketplaceAdapter
 from app.schemas import ProductListingSchema
+
+LISTING_ID_RE = re.compile(r"/listing/(\d+)")
+LISTING_URL_RE = re.compile(r"/listing/\d+")
+MARKDOWN_LINK_RE = re.compile(
+    r"\[([^\]]+)\]\((https?://(?:www\.)?etsy\.com/listing/\d+[^)]*)\)",
+    re.I,
+)
 
 
 class EtsyAdapter(BaseMarketplaceAdapter):
@@ -20,30 +28,135 @@ class EtsyAdapter(BaseMarketplaceAdapter):
     def build_search_url(self, query: str, country: str) -> str:
         return f"https://www.etsy.com/search?q={quote_plus(query)}&ship_to={country}"
 
+    def normalize_shop_name(self, value: str) -> str:
+        value = value.strip()
+        if not value:
+            return ""
+
+        match = re.search(r"etsy\.com/shop/([^/?#]+)", value, re.I)
+        if match:
+            return match.group(1)
+
+        if value.startswith("@"):
+            value = value[1:]
+
+        return value.strip().strip("/")
+
+    def build_shop_url(self, shop_name: str) -> str:
+        slug = self.normalize_shop_name(shop_name)
+        if not slug:
+            raise ValueError("Etsy shop name is required")
+        return f"https://www.etsy.com/shop/{slug}"
+
+    @staticmethod
+    def detect_block_page(raw_content: str) -> str | None:
+        lowered = raw_content.lower()
+        markers = (
+            "captcha",
+            "datadome",
+            "access denied",
+            "security check",
+            "unusual traffic",
+            "verify you are a human",
+        )
+        if any(marker in lowered for marker in markers):
+            return "Etsy returned a bot-protection page instead of search results."
+        return None
+
     def parse_listings(self, raw_content: str) -> List[ProductListingSchema]:
         stripped = raw_content.strip()
         if stripped.startswith("{") or stripped.startswith("["):
-            try:
-                data = json.loads(stripped)
-                listings = self._parse_structured(data)
-                if listings:
-                    return listings
-            except json.JSONDecodeError:
-                pass
+            listings = self._parse_structured(self._load_json(stripped))
+            if listings:
+                return self._dedupe(listings)
 
         soup = BeautifulSoup(raw_content, "lxml")
-        for script in soup.find_all("script", attrs={"type": "application/ld+json"}):
-            try:
-                payload = json.loads(script.string or "")
-                listings = self._parse_json_ld(payload)
-                if listings:
-                    return listings
-            except (json.JSONDecodeError, TypeError):
-                continue
 
-        return self._parse_html_cards(soup)
+        listings: List[ProductListingSchema] = []
+        listings.extend(self._parse_all_json_ld(soup))
+        listings.extend(self._parse_embedded_scripts(soup))
+        listings.extend(self._parse_markdown_listings(raw_content))
+        listings.extend(self._parse_html_cards(soup))
+
+        return self._dedupe(listings)
+
+    def _load_json(self, text: str) -> Any:
+        try:
+            return json.loads(text)
+        except json.JSONDecodeError:
+            return None
+
+    def _dedupe(self, listings: List[ProductListingSchema]) -> List[ProductListingSchema]:
+        seen: set[str] = set()
+        unique: List[ProductListingSchema] = []
+        for listing in listings:
+            key = self._listing_key(listing.url)
+            if not key or key in seen:
+                continue
+            seen.add(key)
+            unique.append(listing)
+        return unique[:30]
+
+    def _listing_key(self, url: str) -> str:
+        match = LISTING_ID_RE.search(url or "")
+        return match.group(1) if match else ""
+
+    def _normalize_listing_url(self, href: str) -> str:
+        if not href:
+            return ""
+        path = urlparse(href).path if href.startswith("http") else href.split("?")[0]
+        match = LISTING_ID_RE.search(path)
+        if not match:
+            return ""
+        return f"https://www.etsy.com/listing/{match.group(1)}"
+
+    def _parse_all_json_ld(self, soup: BeautifulSoup) -> List[ProductListingSchema]:
+        listings: List[ProductListingSchema] = []
+        for script in soup.find_all("script", attrs={"type": "application/ld+json"}):
+            payload = self._load_json(html.unescape(script.string or script.get_text() or ""))
+            if payload is not None:
+                listings.extend(self._parse_json_ld(payload))
+        return listings
+
+    def _parse_embedded_scripts(self, soup: BeautifulSoup) -> List[ProductListingSchema]:
+        listings: List[ProductListingSchema] = []
+        for script in soup.find_all("script"):
+            script_type = (script.get("type") or "").lower()
+            text = html.unescape(script.string or script.get_text() or "").strip()
+            if not text:
+                continue
+            if script_type in {"application/json", "application/ld+json", "text/json"} or text.startswith(("{", "[")):
+                payload = self._load_json(text)
+                if payload is not None:
+                    listings.extend(self._find_listings_in_json(payload))
+        return listings
+
+    def _parse_markdown_listings(self, raw_content: str) -> List[ProductListingSchema]:
+        listings: List[ProductListingSchema] = []
+        for title, url in MARKDOWN_LINK_RE.findall(raw_content):
+            normalized = self._normalize_listing_url(url)
+            if not normalized:
+                continue
+            listings.append(ProductListingSchema(
+                platform=self.platform_name,
+                title=title.strip()[:500] or "Etsy Listing",
+                url=normalized,
+                shop_name="",
+                price=0.0,
+                currency="USD",
+                rating=0.0,
+                review_count=0,
+                image_url="",
+                description="",
+                tags=[],
+                detected_keywords=[w.lower() for w in title.split() if len(w) > 3],
+            ))
+        return listings
 
     def _parse_structured(self, data: Any) -> List[ProductListingSchema]:
+        if data is None:
+            return []
+
         if isinstance(data, list):
             listings: List[ProductListingSchema] = []
             for item in data:
@@ -51,15 +164,64 @@ class EtsyAdapter(BaseMarketplaceAdapter):
                     listing = self._listing_from_record(item)
                     if listing:
                         listings.append(listing)
+                    else:
+                        listings.extend(self._find_listings_in_json(item))
             return listings
 
         if isinstance(data, dict):
             if "itemListElement" in data:
                 return self._parse_json_ld(data)
+            listings = self._find_listings_in_json(data)
+            if listings:
+                return listings
             listing = self._listing_from_record(data)
             return [listing] if listing else []
 
         return []
+
+    def _find_listings_in_json(self, obj: Any) -> List[ProductListingSchema]:
+        found: List[ProductListingSchema] = []
+
+        def walk(node: Any) -> None:
+            if isinstance(node, dict):
+                if self._looks_like_listing(node):
+                    listing = self._listing_from_record(self._normalize_record(node))
+                    if listing:
+                        found.append(listing)
+                for value in node.values():
+                    walk(value)
+            elif isinstance(node, list):
+                for item in node:
+                    walk(item)
+
+        walk(obj)
+        return found
+
+    def _looks_like_listing(self, record: dict) -> bool:
+        url = str(record.get("url") or record.get("listing_url") or record.get("product_url") or "")
+        listing_id = record.get("listing_id") or record.get("listingId") or record.get("id")
+        title = record.get("title") or record.get("name") or record.get("listing_title")
+        if listing_id and title:
+            return True
+        return bool(title and LISTING_ID_RE.search(url))
+
+    def _normalize_record(self, record: dict) -> dict:
+        normalized = dict(record)
+        url = normalized.get("url") or normalized.get("listing_url") or normalized.get("product_url") or ""
+        if url and not normalized.get("url"):
+            normalized["url"] = url
+        listing_id = normalized.get("listing_id") or normalized.get("listingId")
+        if listing_id and not normalized.get("url"):
+            normalized["url"] = f"https://www.etsy.com/listing/{listing_id}"
+        if isinstance(normalized.get("brand"), dict):
+            normalized["shop_name"] = normalized["brand"].get("name", "")
+        return normalized
+
+    def _is_type(self, payload: dict, *types: str) -> bool:
+        value = payload.get("@type", "")
+        if isinstance(value, list):
+            return any(item in types for item in value)
+        return value in types
 
     def _parse_json_ld(self, payload: Any) -> List[ProductListingSchema]:
         if isinstance(payload, list):
@@ -71,19 +233,23 @@ class EtsyAdapter(BaseMarketplaceAdapter):
         if not isinstance(payload, dict):
             return []
 
-        item_type = payload.get("@type", "")
-        if item_type == "Product":
+        if self._is_type(payload, "Product"):
             listing = self._listing_from_record(payload)
             return [listing] if listing else []
 
-        if item_type in ("ItemList", "SearchResultsPage") or "itemListElement" in payload:
+        if self._is_type(payload, "ItemList", "SearchResultsPage") or "itemListElement" in payload:
             listings: List[ProductListingSchema] = []
             for item in payload.get("itemListElement", []):
-                if isinstance(item, dict):
-                    product = item.get("item") if isinstance(item.get("item"), dict) else item
-                    listing = self._listing_from_record(product)
-                    if listing:
-                        listings.append(listing)
+                if not isinstance(item, dict):
+                    continue
+                if self._is_type(item, "Product"):
+                    listing = self._listing_from_record(item)
+                elif isinstance(item.get("item"), dict):
+                    listing = self._listing_from_record(item["item"])
+                else:
+                    listing = self._listing_from_record(item)
+                if listing:
+                    listings.append(listing)
             return listings
 
         graph = payload.get("@graph")
@@ -103,6 +269,7 @@ class EtsyAdapter(BaseMarketplaceAdapter):
             or record.get("listing_title")
         )
         url = record.get("url") or record.get("product_url") or record.get("listing_url") or ""
+        url = self._normalize_listing_url(str(url)) if url else ""
         if not title and not url:
             return None
 
@@ -111,11 +278,17 @@ class EtsyAdapter(BaseMarketplaceAdapter):
             record.get("shop_name")
             or record.get("seller")
             or record.get("store_name")
-            or record.get("brand")
+            or record.get("shop")
             or ""
         )
         if isinstance(shop_name, dict):
             shop_name = shop_name.get("name", "")
+
+        brand = record.get("brand")
+        if not shop_name and isinstance(brand, dict):
+            shop_name = brand.get("name", "")
+        elif not shop_name and isinstance(brand, str):
+            shop_name = brand
 
         image_url = record.get("image_url") or record.get("image") or ""
         if isinstance(image_url, list):
@@ -141,7 +314,7 @@ class EtsyAdapter(BaseMarketplaceAdapter):
         return ProductListingSchema(
             platform=self.platform_name,
             title=str(title)[:500],
-            url=str(url),
+            url=url,
             shop_name=str(shop_name),
             price=price,
             currency=record.get("currency") or record.get("priceCurrency") or "USD",
@@ -155,7 +328,7 @@ class EtsyAdapter(BaseMarketplaceAdapter):
         )
 
     def _extract_price(self, record: dict) -> float:
-        for key in ("price", "current_price", "listing_price"):
+        for key in ("price", "current_price", "listing_price", "productPrice"):
             value = record.get(key)
             parsed = self._parse_price_value(value)
             if parsed is not None:
@@ -167,7 +340,8 @@ class EtsyAdapter(BaseMarketplaceAdapter):
             if parsed is not None:
                 return parsed
         elif isinstance(offers, list) and offers:
-            parsed = self._parse_price_value(offers[0].get("price") if isinstance(offers[0], dict) else offers[0])
+            first = offers[0]
+            parsed = self._parse_price_value(first.get("price") if isinstance(first, dict) else first)
             if parsed is not None:
                 return parsed
 
@@ -183,62 +357,115 @@ class EtsyAdapter(BaseMarketplaceAdapter):
             return None
         return float(match.group().replace(",", ""))
 
+    def _card_root(self, element: Any) -> Any:
+        for _ in range(6):
+            if element is None:
+                break
+            if element.get("data-listing-id") or element.get("data-palette-listing-id"):
+                return element
+            element = element.parent
+        return None
+
     def _parse_html_cards(self, soup: BeautifulSoup) -> List[ProductListingSchema]:
         listings: List[ProductListingSchema] = []
-        cards = soup.select("[data-listing-id], .v2-listing-card, .listing-link")
-        if not cards:
-            cards = soup.find_all("a", href=re.compile(r"/listing/\d+"))
+        seen: set[str] = set()
 
-        seen_urls = set()
-        for card in cards[:30]:
-            try:
-                link = card if card.name == "a" else card.find("a", href=re.compile(r"/listing/"))
-                if not link:
-                    continue
-                href = link.get("href", "")
-                if not href or href in seen_urls:
-                    continue
-                seen_urls.add(href)
-                url = href if href.startswith("http") else f"https://www.etsy.com{href}"
-
-                title_el = card.select_one("h3, .v2-listing-card__title, [data-listing-card-title]")
-                title = title_el.get_text(strip=True) if title_el else link.get_text(strip=True) or "Etsy Listing"
-
-                price_el = card.select_one(".currency-value, .n-listing-card__price, [data-price]")
-                price = 0.0
-                if price_el:
-                    price_match = re.search(r"[\d,.]+", price_el.get_text())
-                    if price_match:
-                        price = float(price_match.group().replace(",", ""))
-
-                shop_el = card.select_one(".shop-name, [data-shop-name]")
-                shop_name = shop_el.get_text(strip=True) if shop_el else ""
-
-                img_el = card.select_one("img")
-                image_url = img_el.get("src", "") if img_el else ""
-
-                rating_el = card.select_one("[aria-label*='star'], .star-seller-badge")
-                rating = 0.0
-                if rating_el:
-                    rating_match = re.search(r"([\d.]+)\s*star", rating_el.get("aria-label", ""), re.I)
-                    if rating_match:
-                        rating = float(rating_match.group(1))
-
-                listings.append(ProductListingSchema(
-                    platform=self.platform_name,
-                    title=title[:500],
-                    url=url,
-                    shop_name=shop_name,
-                    price=price,
-                    currency="USD",
-                    rating=rating,
-                    review_count=0,
-                    image_url=image_url,
-                    description="",
-                    tags=[],
-                    detected_keywords=[w.lower() for w in title.split() if len(w) > 3],
-                ))
-            except Exception:
+        card_roots = soup.select("[data-listing-id], [data-palette-listing-id], .v2-listing-card, .wt-height-full")
+        for card in card_roots:
+            listing = self._listing_from_card(card)
+            if not listing:
                 continue
+            key = self._listing_key(listing.url)
+            if key in seen:
+                continue
+            seen.add(key)
+            listings.append(listing)
+
+        if listings:
+            return listings
+
+        for link in soup.find_all("a", href=LISTING_URL_RE):
+            listing = self._listing_from_link(link)
+            if not listing:
+                continue
+            key = self._listing_key(listing.url)
+            if key in seen:
+                continue
+            seen.add(key)
+            listings.append(listing)
 
         return listings
+
+    def _listing_from_card(self, card: Any) -> ProductListingSchema | None:
+        link = card.find("a", href=LISTING_URL_RE)
+        if not link:
+            return None
+        return self._listing_from_link(link, card)
+
+    def _listing_from_link(self, link: Any, card: Any | None = None) -> ProductListingSchema | None:
+        href = link.get("href", "")
+        url = self._normalize_listing_url(href)
+        if not url:
+            return None
+
+        scope = card or self._card_root(link) or link.parent
+
+        title_el = None
+        if scope is not None:
+            title_el = scope.select_one(
+                "h3, h2, [data-listing-card-title], .v2-listing-card__title, .wt-text-caption"
+            )
+        title = ""
+        if title_el:
+            title = title_el.get_text(" ", strip=True)
+        if not title:
+            title = link.get("title") or link.get("aria-label") or link.get_text(" ", strip=True)
+        title = re.sub(r"\s+", " ", title).strip()
+        if not title or len(title) < 3:
+            return None
+
+        price = 0.0
+        if scope is not None:
+            price_el = scope.select_one(
+                ".lc-price, .n-listing-card__price, .currency-value, [data-price], .wt-text-title-01"
+            )
+            if price_el:
+                parsed = self._parse_price_value(price_el.get_text(" ", strip=True))
+                price = parsed or 0.0
+
+        shop_name = ""
+        if scope is not None:
+            shop_el = scope.select_one(
+                ".v2-listing-card__shop, .shop-name, [data-shop-name], .wt-text-caption.wt-text-link-no-underline"
+            )
+            if shop_el:
+                shop_name = shop_el.get_text(" ", strip=True)
+
+        image_url = ""
+        if scope is not None:
+            img_el = scope.select_one("img[src]")
+            if img_el:
+                image_url = img_el.get("src", "")
+
+        rating = 0.0
+        if scope is not None:
+            rating_el = scope.select_one("[aria-label*='star']")
+            if rating_el:
+                rating_match = re.search(r"([\d.]+)\s*star", rating_el.get("aria-label", ""), re.I)
+                if rating_match:
+                    rating = float(rating_match.group(1))
+
+        return ProductListingSchema(
+            platform=self.platform_name,
+            title=title[:500],
+            url=url,
+            shop_name=shop_name,
+            price=price,
+            currency="USD",
+            rating=rating,
+            review_count=0,
+            image_url=image_url,
+            description="",
+            tags=[],
+            detected_keywords=[w.lower() for w in title.split() if len(w) > 3],
+        )

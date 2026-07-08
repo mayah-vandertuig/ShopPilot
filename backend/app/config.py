@@ -1,14 +1,21 @@
 """Application configuration."""
 
 from functools import lru_cache
+from pathlib import Path
 from typing import List
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+_BACKEND_DIR = Path(__file__).resolve().parents[1]
+_PROJECT_ROOT = _BACKEND_DIR.parent
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=(".env", "../.env"),
+        env_file=(
+            str(_PROJECT_ROOT / ".env"),
+            str(_BACKEND_DIR / ".env"),
+        ),
         env_file_encoding="utf-8",
         extra="ignore",
     )

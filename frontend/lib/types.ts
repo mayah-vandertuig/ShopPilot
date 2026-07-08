@@ -100,7 +100,7 @@ export interface AnalysisDetail extends Analysis {
 
 export interface AnalysisCreateRequest {
   platform: string;
-  input_type: "shop_url" | "product_url" | "marketplace_url" | "keyword";
+  input_type: "shop_name" | "shop_url" | "product_url" | "marketplace_url" | "keyword";
   input_value: string;
   country: string;
   currency: string;

@@ -25,22 +25,22 @@ class IngestionService:
 
     try:
       if input_type == InputType.keyword and adapter.supports_keyword_search:
-        if self.bright_data.is_available:
+        if not self.bright_data.is_available:
+          last_error = self.bright_data.unavailable_reason()
+        else:
           raw_listings, source, error = self.bright_data.search_marketplace(platform, input_value, country)
           if raw_listings:
             return [adapter.normalize_listing(r) for r in raw_listings], source, ""
           last_error = error or last_error
 
-        url = adapter.build_search_url(input_value, country)
-        content, source, error = self.bright_data.scrape_url(url, country=country, platform=platform)
+      elif input_type == InputType.shop_name and platform == "etsy":
+        shop_url = adapter.build_shop_url(input_value)
+        content, source, error = self.bright_data.scrape_url(shop_url, country=country, platform=platform)
         if content:
           parsed = adapter.parse_listings(content)
           if parsed:
             return parsed, source, ""
-          last_error = (
-            "Live page was scraped but the adapter could not parse listings. "
-            "The marketplace HTML may have changed."
-          )
+          last_error = "Live Etsy shop page scraped but no listings could be parsed"
         elif error:
           last_error = error
 
@@ -77,7 +77,10 @@ class IngestionService:
         elif error:
           last_error = error
       else:
-        last_error = f"Input type '{input_type.value}' is not supported for platform '{platform}'"
+        if input_type == InputType.shop_name:
+          last_error = f"Shop name input is not supported for platform '{platform}'"
+        else:
+          last_error = f"Input type '{input_type.value}' is not supported for platform '{platform}'"
 
     except IngestionError:
       raise
