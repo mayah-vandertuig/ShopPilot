@@ -4,7 +4,7 @@ import html
 import json
 import re
 from typing import Any, List
-from urllib.parse import parse_qs, quote_plus, urlencode, urlparse, urlunparse
+from urllib.parse import parse_qs, quote_plus, unquote, urlencode, urlparse, urlunparse
 
 from bs4 import BeautifulSoup
 
@@ -13,33 +13,45 @@ from app.schemas import ProductListingSchema
 
 LISTING_ID_RE = re.compile(r"/listing/(\d+)")
 LISTING_URL_RE = re.compile(r"/listing/\d+")
+MARKET_TAG_RE = re.compile(r"/market/([^/?#]+)")
 MARKDOWN_LINK_RE = re.compile(
     r"\[([^\]]+)\]\((https?://(?:www\.)?etsy\.com/listing/\d+[^)]*)\)",
     re.I,
 )
 JUNK_TITLE_RE = re.compile(
-    r"^(add to|favorite|favourite|etsy|shop all|see more|view all|cart|help|sign in|register|search|"
+    r"^(add to|favorite|favorites|favourite|favourites|etsy|shop all|see more|view all|cart|help|sign in|register|search|"
     r"añadir|agregar|anadir|favorito|favoritos|carrito|ver más|ver mas|ver todo|iniciar sesión|iniciar sesion|"
     r"registrarse|buscar|ayuda|tienda|artículo|articulo|envío|envio|comprar|vendido|explorar)",
     re.I,
 )
 MIN_TITLE_LENGTH = 8
-ETSY_LOCALE = "en-US"
+DEFAULT_ETSY_LANGUAGE = "en-US"
 TAG_JUNK = {
     "free shipping", "etsy", "handmade", "personalized", "custom", "sale", "new",
     "add to cart", "shop all", "view all",
 }
+SPANISH_TAG_RE = re.compile(
+    r"[áéíóúñü]|"
+    r"\b(arte|pared|minimalista|impresi[oó]n|cartel|decoraci[oó]n|descarga|"
+    r"gratis|tienda|comprar|vendido|favoritos|buscar|cartel|p[oó]ster)\b",
+    re.I,
+)
+TAG_OBJECT_SLUG_KEYS = ("slug", "tag_slug", "machine_name", "canonical", "normalized", "id")
+TAG_OBJECT_NAME_KEYS = ("tag", "name", "label", "text", "value", "title")
 
 
-def with_etsy_locale(url: str, country: str = "") -> str:
+def with_etsy_locale(
+    url: str,
+    country: str = "US",
+    currency: str = "USD",
+    language: str = DEFAULT_ETSY_LANGUAGE,
+) -> str:
     parsed = urlparse(url)
     query = parse_qs(parsed.query, keep_blank_values=True)
-    if "locale_override" not in query:
-        query["locale_override"] = [ETSY_LOCALE]
-    if country and "ship_to" not in query:
+    query["locale_override"] = [language or DEFAULT_ETSY_LANGUAGE]
+    if country:
         query["ship_to"] = [country]
-    if "currency" not in query:
-        query["currency"] = ["USD"]
+    query["currency"] = [currency or "USD"]
     flat = {key: values[0] for key, values in query.items() if values}
     return urlunparse(parsed._replace(query=urlencode(flat)))
 
@@ -50,9 +62,16 @@ class EtsyAdapter(BaseMarketplaceAdapter):
     supports_product_url = True
     supports_keyword_search = True
 
-    def build_search_url(self, query: str, country: str) -> str:
+    def build_search_url(
+        self,
+        query: str,
+        country: str = "US",
+        currency: str = "USD",
+        language: str = DEFAULT_ETSY_LANGUAGE,
+        locale: str = "en_US",
+    ) -> str:
         url = f"https://www.etsy.com/search?q={quote_plus(query)}"
-        return with_etsy_locale(url, country=country)
+        return with_etsy_locale(url, country=country, currency=currency, language=language)
 
     def normalize_shop_name(self, value: str) -> str:
         value = value.strip()
@@ -68,14 +87,55 @@ class EtsyAdapter(BaseMarketplaceAdapter):
 
         return value.strip().strip("/")
 
-    def build_shop_url(self, shop_name: str, country: str = "US") -> str:
+    def shop_slug_key(self, value: str) -> str:
+        slug = self.normalize_shop_name(value).lower()
+        return re.sub(r"[\s_\-]+", "", slug)
+
+    def shop_keys_match(self, left: str, right: str) -> bool:
+        left_key = self.shop_slug_key(left)
+        right_key = self.shop_slug_key(right)
+        return bool(left_key) and left_key == right_key
+
+    def _tag_from_link_href(self, href: str) -> str | None:
+        if not href:
+            return None
+
+        parsed = urlparse(href)
+        query = parse_qs(parsed.query)
+        for key in ("tags", "tag"):
+            values = query.get(key) or []
+            if values and values[0].strip():
+                return unquote(values[0].replace("+", " ")).strip()
+
+        market_match = MARKET_TAG_RE.search(parsed.path)
+        if market_match:
+            slug = unquote(market_match.group(1))
+            return re.sub(r"[_-]+", " ", slug).strip()
+
+        return None
+
+    def build_shop_url(
+        self,
+        shop_name: str,
+        country: str = "US",
+        currency: str = "USD",
+        language: str = DEFAULT_ETSY_LANGUAGE,
+    ) -> str:
         slug = self.normalize_shop_name(shop_name)
         if not slug:
             raise ValueError("Etsy shop name is required")
-        return with_etsy_locale(f"https://www.etsy.com/shop/{slug}", country=country)
+        return with_etsy_locale(
+            f"https://www.etsy.com/shop/{slug}",
+            country=country,
+            currency=currency,
+            language=language,
+        )
 
     @staticmethod
     def detect_block_page(raw_content: str) -> str | None:
+        if LISTING_ID_RE.search(raw_content):
+            return None
+
         lowered = raw_content.lower()
         markers = (
             "captcha",
@@ -86,7 +146,7 @@ class EtsyAdapter(BaseMarketplaceAdapter):
             "verify you are a human",
         )
         if any(marker in lowered for marker in markers):
-            return "Etsy returned a bot-protection page instead of search results."
+            return "Etsy returned a bot-protection page instead of shop results."
         return None
 
     def parse_listings(self, raw_content: str) -> List[ProductListingSchema]:
@@ -131,6 +191,9 @@ class EtsyAdapter(BaseMarketplaceAdapter):
         listings: List[ProductListingSchema],
         bright_data: Any,
         country: str = "US",
+        currency: str = "USD",
+        language: str = DEFAULT_ETSY_LANGUAGE,
+        locale: str = "en_US",
         max_listings: int = 8,
     ) -> List[ProductListingSchema]:
         if bright_data is None or not getattr(bright_data, "is_available", False):
@@ -140,8 +203,15 @@ class EtsyAdapter(BaseMarketplaceAdapter):
         for listing in listings:
             if listing.tags or not listing.url or enriched >= max_listings:
                 continue
-            detail_url = with_etsy_locale(listing.url, country=country)
-            content, _, error = bright_data.scrape_url(detail_url, country=country, platform="etsy")
+            detail_url = with_etsy_locale(listing.url, country=country, currency=currency, language=language)
+            content, _, error, _ = bright_data.scrape_url(
+                detail_url,
+                country=country,
+                platform="etsy",
+                language=language,
+                currency=currency,
+                locale=locale,
+            )
             if not content or error:
                 continue
             tags = self.parse_listing_page_tags(content)
@@ -154,18 +224,11 @@ class EtsyAdapter(BaseMarketplaceAdapter):
         tags: List[str] = []
         soup = BeautifulSoup(raw_content, "lxml")
 
-        for link in soup.select("a.wt-tag, a[data-tag], a[href*='tags=']"):
+        for link in soup.select("a.wt-tag, a[data-tag], a[href*='tags='], a[href*='/market/']"):
             href = link.get("href", "")
-            if "tags=" not in href and "tag=" not in href and "wt-tag" not in " ".join(link.get("class", [])):
-                continue
-            text = re.sub(r"\s+", " ", link.get_text(" ", strip=True))
-            if text and 2 <= len(text) <= 40:
-                tags.append(text)
-
-        for script in soup.find_all("script", attrs={"type": "application/ld+json"}):
-            payload = self._load_json(html.unescape(script.string or script.get_text() or ""))
-            if isinstance(payload, dict):
-                tags.extend(self._tags_from_record(payload))
+            tag = self._tag_from_link_href(href)
+            if tag:
+                tags.append(tag)
 
         return self._dedupe_tags(tags)
 
@@ -184,7 +247,7 @@ class EtsyAdapter(BaseMarketplaceAdapter):
         if shop_name and shop_name.lower() not in {"unknown shop", "etsy", ""}:
             return shop_name
         if isinstance(raw_data, dict):
-            for key in ("shop_name", "seller", "store_name"):
+            for key in ("shop_name", "seller", "store_name", "shop", "shop_slug", "shopName"):
                 value = raw_data.get(key)
                 if isinstance(value, str) and value.strip():
                     return value.strip()
@@ -192,17 +255,58 @@ class EtsyAdapter(BaseMarketplaceAdapter):
                     return str(value["name"]).strip()
         return shop_name or ""
 
+    def _looks_like_localized_tag(self, value: str) -> bool:
+        cleaned = re.sub(r"\s+", " ", (value or "").strip())
+        if not cleaned:
+            return True
+        return bool(SPANISH_TAG_RE.search(cleaned))
+
+    def _canonical_tag_value(self, item: Any) -> str | None:
+        if isinstance(item, dict):
+            for key in TAG_OBJECT_SLUG_KEYS:
+                value = item.get(key)
+                if isinstance(value, str) and value.strip():
+                    if key in {"href", "url"}:
+                        return self._tag_from_link_href(value)
+                    return re.sub(r"[_-]+", " ", unquote(value)).strip()
+
+            href = item.get("href") or item.get("url")
+            if isinstance(href, str) and href.strip():
+                tag = self._tag_from_link_href(href)
+                if tag:
+                    return tag
+
+            for key in TAG_OBJECT_NAME_KEYS:
+                value = item.get(key)
+                if isinstance(value, str) and value.strip() and not self._looks_like_localized_tag(value):
+                    return value.strip()
+            return None
+
+        if isinstance(item, str):
+            cleaned = item.strip()
+            if cleaned and not self._looks_like_localized_tag(cleaned):
+                return cleaned
+        return None
+
     def _tags_from_record(self, record: dict) -> List[str]:
         tags: List[str] = []
         for key in ("tags", "tag_list"):
             value = record.get(key)
             if isinstance(value, list):
-                tags.extend(str(item).strip() for item in value if str(item).strip())
+                for item in value:
+                    tag = self._canonical_tag_value(item)
+                    if tag:
+                        tags.append(tag)
             elif isinstance(value, str) and value.strip():
                 if "," in value:
-                    tags.extend(part.strip() for part in value.split(",") if part.strip())
+                    for part in value.split(","):
+                        tag = self._canonical_tag_value(part)
+                        if tag:
+                            tags.append(tag)
                 else:
-                    tags.append(value.strip())
+                    tag = self._canonical_tag_value(value)
+                    if tag:
+                        tags.append(tag)
         return self._dedupe_tags(tags)
 
     def _dedupe_tags(self, tags: List[str]) -> List[str]:
@@ -260,6 +364,18 @@ class EtsyAdapter(BaseMarketplaceAdapter):
             if payload is not None:
                 walk(payload)
 
+        for card in soup.select("[data-listing-id], [data-palette-listing-id]"):
+            listing_id = card.get("data-listing-id") or card.get("data-palette-listing-id")
+            if not listing_id:
+                continue
+            href_tags: List[str] = []
+            for link in card.select("a.wt-tag, a[href*='/market/'], a[href*='tags='], a[href*='tag=']"):
+                tag = self._tag_from_link_href(link.get("href", ""))
+                if tag:
+                    href_tags.append(tag)
+            if href_tags:
+                store(str(listing_id), href_tags)
+
         return index
 
     def is_valid_listing(self, listing: ProductListingSchema) -> bool:
@@ -279,6 +395,8 @@ class EtsyAdapter(BaseMarketplaceAdapter):
                 "añadir al carrito",
                 "agregar al carrito",
                 "añadir a favoritos",
+                "add to favorites",
+                "add to favourites",
                 "iniciar sesión",
                 "ver más",
                 "envío gratis",
@@ -613,15 +731,14 @@ class EtsyAdapter(BaseMarketplaceAdapter):
         if not url:
             return None
 
-        scope = card or self._card_root(link) or link.parent
+        card_root = card or self._card_root(link)
+        scope = card_root or link
 
-        title_el = None
-        if scope is not None:
-            title_el = scope.select_one(
-                "h3, h2, [data-listing-card-title], .v2-listing-card__title, .wt-text-caption"
-            )
+        title_el = scope.select_one(
+            "h3, h2, [data-listing-card-title], .v2-listing-card__title, .wt-text-caption"
+        )
         title = ""
-        if title_el:
+        if title_el and (card_root is not None or title_el.find_parent("a") is link):
             title = title_el.get_text(" ", strip=True)
         if not title:
             title = link.get("title") or link.get("aria-label") or link.get_text(" ", strip=True)

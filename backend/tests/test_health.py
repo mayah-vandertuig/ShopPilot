@@ -10,6 +10,7 @@ from app.analysis.pricing import calculate_pricing_summary
 from app.analysis.keywords import extract_keywords
 from app.analysis.competitors import analyze_competitors
 from app.analysis.listing_audit import audit_listings
+from app.services.ingestion import CollectionResult
 
 
 @pytest.fixture
@@ -87,7 +88,7 @@ def test_codex_repair_disabled(client):
 
 
 def test_create_analysis_requires_live_data(client, monkeypatch):
-  def fake_collect(self, platform, input_type, input_value, country):
+  def fake_collect(self, platform, input_type, input_value, country, currency="", language="", locale=""):
     listings = [
       ProductListingSchema(
         platform="etsy",
@@ -98,7 +99,10 @@ def test_create_analysis_requires_live_data(client, monkeypatch):
       )
       for i in range(3)
     ]
-    return listings, "live", ""
+    return CollectionResult(
+      listings=listings,
+      data_source="live",
+    )
 
   monkeypatch.setattr("app.services.ingestion.IngestionService.collect", fake_collect)
 
@@ -118,7 +122,7 @@ def test_create_analysis_requires_live_data(client, monkeypatch):
 def test_create_analysis_fails_without_live_data(client, monkeypatch):
   from app.exceptions import IngestionError
 
-  def failing_collect(self, platform, input_type, input_value, country):
+  def failing_collect(self, platform, input_type, input_value, country, currency="", language="", locale=""):
     raise IngestionError("Bright Data unavailable")
 
   monkeypatch.setattr("app.services.ingestion.IngestionService.collect", failing_collect)

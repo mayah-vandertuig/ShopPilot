@@ -5,6 +5,7 @@ import type {
   CodexAgentResponse,
   CodexStatus,
   Competitor,
+  CompetitorDetail,
   FreeformResponse,
   Listing,
 } from "./types";
@@ -51,6 +52,10 @@ export async function getCompetitors(analysisId: number): Promise<Competitor[]> 
   return fetchApi(`/api/analyses/${analysisId}/competitors`);
 }
 
+export async function getCompetitorDetail(analysisId: number, competitorId: number): Promise<CompetitorDetail> {
+  return fetchApi(`/api/analyses/${analysisId}/competitors/${competitorId}`);
+}
+
 export async function generateRecommendations(analysisId: number) {
   return fetchApi(`/api/analyses/${analysisId}/recommendations`, { method: "POST" });
 }
@@ -64,6 +69,10 @@ export async function askFreeformQuestion(analysisId: number, question: string):
 
 export async function getCodexStatus(): Promise<CodexStatus> {
   return fetchApi("/api/codex/status");
+}
+
+export async function getSettingsStatus(): Promise<import("./types").SettingsStatus> {
+  return fetchApi("/api/settings/status");
 }
 
 export async function runAdapterRepair(data: {

@@ -32,6 +32,27 @@ class Settings(BaseSettings):
     codex_require_human_review: bool = True
     codex_timeout_seconds: int = 120
 
+    shoppilot_default_country: str = "US"
+    shoppilot_default_language: str = "en-US"
+    shoppilot_default_currency: str = "USD"
+    shoppilot_default_locale: str = "en_US"
+
+    @property
+    def default_country(self) -> str:
+        return self.shoppilot_default_country or "US"
+
+    @property
+    def default_language(self) -> str:
+        return self.shoppilot_default_language or "en-US"
+
+    @property
+    def default_currency(self) -> str:
+        return self.shoppilot_default_currency or "USD"
+
+    @property
+    def default_locale(self) -> str:
+        return self.shoppilot_default_locale or "en_US"
+
     @property
     def cors_origins(self) -> List[str]:
         return [o.strip() for o in self.backend_cors_origins.split(",") if o.strip()]

@@ -6,9 +6,13 @@ from contextlib import contextmanager
 from typing import Any, Iterator, List, Optional, Tuple
 from urllib.parse import urlparse
 
-from app.adapters.etsy import with_etsy_locale
-
 from app.config import get_settings
+from app.services.localization import (
+    detect_unexpected_locale,
+    is_poor_parse_quality,
+    mock_listings_for_query,
+)
+from app.services.marketplace_url import normalize_marketplace_url
 
 logger = logging.getLogger(__name__)
 
@@ -118,12 +122,43 @@ class BrightDataService:
       return sdk_error
     return "Bright Data is not available"
 
+  def _resolve_locale(
+    self,
+    country: str = "",
+    language: str = "",
+    currency: str = "",
+    locale: str = "",
+  ) -> tuple[str, str, str, str]:
+    return (
+      country or self.settings.default_country,
+      language or self.settings.default_language,
+      currency or self.settings.default_currency,
+      locale or self.settings.default_locale,
+    )
+
+  def _prepare_scrape_url(
+    self,
+    url: str,
+    platform: str,
+    country: str,
+    language: str,
+    currency: str,
+    locale: str,
+  ) -> str:
+    return normalize_marketplace_url(
+      url,
+      platform=platform,
+      country=country,
+      language=language,
+      currency=currency,
+      locale=locale,
+    )
+
   def _attempts_for_url(self, url: str, platform: str) -> List[str]:
     is_etsy = platform == "etsy" or _is_etsy_url(url)
     if is_etsy and "/listing/" in url:
       return ["etsy_dataset", "unlocker_async", "unlocker_sync", "crawler_async"]
     if is_etsy:
-      # Search/shop pages: unlocker is faster and avoids the crawler's 30s inline timeout.
       return ["unlocker_async", "unlocker_sync", "crawler_async"]
     return ["unlocker_sync", "unlocker_async", "crawler_async"]
 
@@ -137,8 +172,11 @@ class BrightDataService:
     return _content_from_crawl_result(result)
 
   def _try_unlocker(self, client: Any, url: str, country: str, mode: str) -> Tuple[str, Optional[str]]:
+    country_code = (country or self.settings.default_country or "US").upper()
+    if country_code == "UK":
+      country_code = "GB"
     kwargs = {
-      "country": country,
+      "country": country_code.lower(),
       "response_format": "raw",
       "mode": mode,
     }
@@ -155,36 +193,49 @@ class BrightDataService:
     url: str,
     country: str = "",
     platform: str = "",
-  ) -> Tuple[str, str, Optional[str]]:
-    """Scrape URL. Returns (content, data_source, error_message)."""
+    language: str = "",
+    currency: str = "",
+    locale: str = "",
+  ) -> Tuple[str, str, Optional[str], Optional[str]]:
+    """Scrape URL. Returns (content, data_source, error_message, locale_warning)."""
+    country, language, currency, locale = self._resolve_locale(country, language, currency, locale)
     if not self.settings.has_bright_data:
-      return "", "failed", self.unavailable_reason()
+      return "", "failed", self.unavailable_reason(), None
 
     sdk_error = _sdk_import_error()
     if sdk_error:
       logger.warning(sdk_error)
-      return "", "failed", sdk_error
+      return "", "failed", sdk_error, None
 
     attempts = self._attempts_for_url(url, platform)
     errors: List[str] = []
-    scrape_url = with_etsy_locale(url, country=country) if _is_etsy_url(url) else url
+    prepared_url = self._prepare_scrape_url(url, platform, country, language, currency, locale)
 
     try:
       with _sync_client(self.settings.bright_data_token) as client:
         for attempt in attempts:
           try:
             if attempt == "etsy_dataset":
-              content, error = self._try_etsy_dataset(client, scrape_url)
+              content, error = self._try_etsy_dataset(client, prepared_url)
             elif attempt == "crawler_async":
-              content, error = self._try_crawler_async(client, scrape_url)
+              content, error = self._try_crawler_async(client, prepared_url)
             elif attempt == "unlocker_async":
-              content, error = self._try_unlocker(client, scrape_url, country, mode="async")
+              content, error = self._try_unlocker(client, prepared_url, country, mode="async")
             else:
-              content, error = self._try_unlocker(client, scrape_url, country, mode="sync")
+              content, error = self._try_unlocker(client, prepared_url, country, mode="sync")
 
             if content:
-              logger.info("Bright Data scrape succeeded via %s for %s", attempt, scrape_url)
-              return content, "live", None
+              locale_warning = detect_unexpected_locale(content, language)
+              if locale_warning:
+                logger.warning(
+                  "Locale mismatch for %s (country=%s, language=%s): %s",
+                  prepared_url,
+                  country,
+                  language,
+                  locale_warning,
+                )
+              logger.info("Bright Data scrape succeeded via %s for %s", attempt, prepared_url)
+              return content, "live", None, locale_warning
 
             message = error or "empty response"
             errors.append(f"{attempt}: {message}")
@@ -196,50 +247,121 @@ class BrightDataService:
     except Exception as e:
       msg = f"Bright Data scrape failed: {e}"
       logger.warning("%s for %s", msg, url)
-      return "", "failed", msg
+      return "", "failed", msg, None
 
     summary = "; ".join(errors) if errors else "All Bright Data scrape strategies returned empty content"
-    return "", "failed", summary
+    return "", "failed", summary, None
 
-  def search_marketplace(self, platform: str, query: str, country: str) -> Tuple[List[dict], str, Optional[str]]:
+  def search_marketplace(
+    self,
+    platform: str,
+    query: str,
+    country: str = "",
+    currency: str = "",
+    language: str = "",
+    locale: str = "",
+  ) -> Tuple[List[dict], str, Optional[str], Optional[str]]:
     from app.adapters import get_adapter
 
+    country, language, currency, locale = self._resolve_locale(country, language, currency, locale)
     adapter = get_adapter(platform)
-    url = adapter.build_search_url(query, country)
-    content, source, error = self.scrape_url(url, country=country, platform=platform)
+    url = adapter.build_search_url(
+      query,
+      country=country,
+      currency=currency,
+      language=language,
+      locale=locale,
+    )
+    url = self._prepare_scrape_url(url, platform, country, language, currency, locale)
+    content, source, error, locale_warning = self.scrape_url(
+      url,
+      country=country,
+      platform=platform,
+      language=language,
+      currency=currency,
+      locale=locale,
+    )
     if not content:
-      return [], "failed", error
-    listings = adapter.parse_listings(content)
+      return [], "failed", error, locale_warning
+
+    listings = adapter.dedupe_listings(adapter.parse_listings(content))
+    warning = locale_warning
+    if warning and is_poor_parse_quality(listings):
+      logger.warning("Falling back to mock listings after poor parse quality for %s", platform)
+      listings = mock_listings_for_query(platform, query, currency=currency)
+      source = "mock"
+      warning = f"{warning} Using mock fallback data because parsing quality was poor."
+
     if not listings:
       block_reason = getattr(adapter, "detect_block_page", lambda _content: None)(content)
       if block_reason:
-        return [], "failed", block_reason
+        return [], "failed", block_reason, warning
+      if warning:
+        listings = mock_listings_for_query(platform, query, currency=currency)
+        return (
+          [listing.model_dump() for listing in listings],
+          "mock",
+          None,
+          f"{warning} Using mock fallback data because parsing quality was poor.",
+        )
       return [], "failed", (
         "Live page was scraped but the adapter could not parse listings. "
         "The marketplace HTML may have changed or blocked the request."
-      )
-    return [l.model_dump() for l in listings], source, None
+      ), warning
+    return [listing.model_dump() for listing in listings], source, None, warning
 
-  def scrape_shop(self, platform: str, shop_url: str, country: str = "") -> Tuple[List[dict], str, Optional[str]]:
+  def scrape_shop(
+    self,
+    platform: str,
+    shop_url: str,
+    country: str = "",
+    currency: str = "",
+    language: str = "",
+    locale: str = "",
+  ) -> Tuple[List[dict], str, Optional[str], Optional[str]]:
     from app.adapters import get_adapter
 
-    content, source, error = self.scrape_url(shop_url, country=country, platform=platform)
+    country, language, currency, locale = self._resolve_locale(country, language, currency, locale)
+    content, source, error, locale_warning = self.scrape_url(
+      shop_url,
+      country=country,
+      platform=platform,
+      language=language,
+      currency=currency,
+      locale=locale,
+    )
     if not content:
-      return [], "failed", error
+      return [], "failed", error, locale_warning
     adapter = get_adapter(platform)
     listings = adapter.parse_listings(content)
     if not listings:
-      return [], "failed", "Live shop page scraped but no listings could be parsed"
-    return [l.model_dump() for l in listings], source, None
+      return [], "failed", "Live shop page scraped but no listings could be parsed", locale_warning
+    return [listing.model_dump() for listing in listings], source, None, locale_warning
 
-  def scrape_product(self, platform: str, product_url: str, country: str = "") -> Tuple[Optional[dict], str, Optional[str]]:
+  def scrape_product(
+    self,
+    platform: str,
+    product_url: str,
+    country: str = "",
+    currency: str = "",
+    language: str = "",
+    locale: str = "",
+  ) -> Tuple[Optional[dict], str, Optional[str], Optional[str]]:
     from app.adapters import get_adapter
 
-    content, source, error = self.scrape_url(product_url, country=country, platform=platform)
+    country, language, currency, locale = self._resolve_locale(country, language, currency, locale)
+    content, source, error, locale_warning = self.scrape_url(
+      product_url,
+      country=country,
+      platform=platform,
+      language=language,
+      currency=currency,
+      locale=locale,
+    )
     if not content:
-      return None, "failed", error
+      return None, "failed", error, locale_warning
     adapter = get_adapter(platform)
     listings = adapter.parse_listings(content)
     if listings:
-      return listings[0].model_dump(), source, None
-    return None, "failed", "Live product page scraped but could not be parsed"
+      return listings[0].model_dump(), source, None, locale_warning
+    return None, "failed", "Live product page scraped but could not be parsed", locale_warning

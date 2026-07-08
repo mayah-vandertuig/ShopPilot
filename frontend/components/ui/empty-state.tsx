@@ -7,12 +7,14 @@ export function EmptyState({
   description,
   className,
   action,
+  children,
 }: {
   icon: LucideIcon;
   title: string;
   description: string;
   className?: string;
   action?: React.ReactNode;
+  children?: React.ReactNode;
 }) {
   return (
     <div className={cn("flex flex-col items-center justify-center rounded-xl border border-dashed border-border bg-muted/40 px-6 py-12 text-center", className)}>
@@ -21,6 +23,7 @@ export function EmptyState({
       </div>
       <h3 className="text-sm font-semibold text-foreground">{title}</h3>
       <p className="text-sm text-muted-foreground mt-1 max-w-sm">{description}</p>
+      {children}
       {action && <div className="mt-4">{action}</div>}
     </div>
   );

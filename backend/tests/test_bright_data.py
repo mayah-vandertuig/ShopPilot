@@ -59,7 +59,7 @@ def test_etsy_search_prefers_unlocker_before_crawler(monkeypatch):
 
   with patch("brightdata.SyncBrightDataClient", return_value=mock_cm):
     service = BrightDataService()
-    content, source, error = service.scrape_url(
+    content, source, error, _ = service.scrape_url(
       "https://www.etsy.com/search?q=frames",
       country="US",
       platform="etsy",

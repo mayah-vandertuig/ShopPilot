@@ -4,6 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes import analyses, codex, competitors, health, listings, search
+from app.api.routes import settings as settings_routes
 from app.config import get_settings
 from app.database import init_db
 
@@ -29,6 +30,7 @@ app.include_router(listings.router)
 app.include_router(competitors.router)
 app.include_router(search.router)
 app.include_router(codex.router)
+app.include_router(settings_routes.router)
 
 
 @app.on_event("startup")

@@ -1,20 +1,49 @@
 "use client";
 
+import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { formatCurrency } from "@/lib/utils";
-import type { Listing } from "@/lib/types";
+import type { Listing, ListingIssue } from "@/lib/types";
 import { X, ExternalLink } from "lucide-react";
 
-export function ListingDetail({ listing, onClose }: { listing: Listing; onClose: () => void }) {
+export function ListingDetail({
+  listing,
+  issues = [],
+  recommendations = [],
+  isUserListing = true,
+  onClose,
+}: {
+  listing: Listing;
+  issues?: ListingIssue[];
+  recommendations?: Array<{ recommendation: string; category: string }>;
+  isUserListing?: boolean;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [onClose]);
+
   return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-foreground/20 backdrop-blur-sm" onClick={onClose}>
+    <div
+      className="fixed inset-y-0 right-0 left-0 lg:left-64 z-40 flex justify-end bg-foreground/20 backdrop-blur-sm"
+      onClick={onClose}
+    >
       <div
         className="h-full w-full max-w-lg overflow-y-auto bg-white shadow-2xl border-l border-border"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="sticky top-0 flex items-center justify-between border-b border-border bg-white px-6 py-4">
-          <h3 className="font-semibold text-foreground">Listing details</h3>
+          <div>
+            <h3 className="font-semibold text-foreground">Listing details</h3>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {isUserListing ? "Your listing" : "Competitor listing"} · {listing.platform}
+            </p>
+          </div>
           <Button variant="ghost" size="sm" onClick={onClose}>
             <X className="h-4 w-4" />
           </Button>
@@ -22,11 +51,7 @@ export function ListingDetail({ listing, onClose }: { listing: Listing; onClose:
         <div className="p-6 space-y-6">
           {listing.image_url && (
             <div className="flex w-full items-center justify-center overflow-hidden rounded-xl border border-border bg-muted/20 p-3">
-              <img
-                src={listing.image_url}
-                alt={listing.title}
-                className="max-h-80 w-full object-contain"
-              />
+              <img src={listing.image_url} alt={listing.title} className="max-h-80 w-full object-contain" />
             </div>
           )}
           <div>
@@ -55,10 +80,54 @@ export function ListingDetail({ listing, onClose }: { listing: Listing; onClose:
             <div>
               <p className="text-sm font-semibold text-foreground mb-2">Tags</p>
               <div className="flex flex-wrap gap-1.5">
-                {listing.tags.map((t) => (
-                  <Badge key={t} variant="outline">{t}</Badge>
+                {listing.tags.map((tag) => (
+                  <Badge key={tag} variant="outline">{tag}</Badge>
                 ))}
               </div>
+            </div>
+          )}
+          {listing.detected_keywords.length > 0 && (
+            <div>
+              <p className="text-sm font-semibold text-foreground mb-2">Detected keywords</p>
+              <div className="flex flex-wrap gap-1.5">
+                {listing.detected_keywords.map((keyword) => (
+                  <Badge key={keyword} variant="outline">{keyword}</Badge>
+                ))}
+              </div>
+            </div>
+          )}
+          {issues.length > 0 && (
+            <div>
+              <p className="text-sm font-semibold text-foreground mb-2">Issues</p>
+              <div className="space-y-2">
+                {issues.map((issue) => (
+                  <div key={issue.id} className="rounded-lg border border-border bg-muted/20 p-3 text-sm">
+                    <Badge variant={issue.severity === "high" ? "danger" : issue.severity === "medium" ? "warning" : "outline"}>
+                      {issue.severity}
+                    </Badge>
+                    <p className="font-medium text-foreground mt-2">{issue.issue}</p>
+                    <p className="text-muted-foreground mt-1">{issue.suggestion}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {recommendations.length > 0 && (
+            <div>
+              <p className="text-sm font-semibold text-foreground mb-2">AI suggestions</p>
+              <div className="space-y-2">
+                {recommendations.map((rec, index) => (
+                  <div key={`${rec.category}-${index}`} className="rounded-lg border border-border p-3 text-sm">
+                    <Badge variant="outline">{rec.category}</Badge>
+                    <p className="text-foreground mt-2">{rec.recommendation}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {!isUserListing && (
+            <div className="rounded-xl border border-border bg-muted/20 p-4 text-sm text-muted-foreground">
+              Competitor context: compare this listing&apos;s price, keywords, and reviews against your shop on the Competitors and Keywords pages.
             </div>
           )}
           {listing.url && (
@@ -68,7 +137,7 @@ export function ListingDetail({ listing, onClose }: { listing: Listing; onClose:
               rel="noopener noreferrer"
               className="inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline"
             >
-              View on marketplace <ExternalLink className="h-3.5 w-3.5" />
+              View source listing <ExternalLink className="h-3.5 w-3.5" />
             </a>
           )}
         </div>

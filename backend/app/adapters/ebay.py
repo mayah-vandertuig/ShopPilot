@@ -18,7 +18,14 @@ class EbayAdapter(BaseMarketplaceAdapter):
         self._fallback = GenericMarketplaceAdapter()
         self._fallback.platform_name = self.platform_name
 
-    def build_search_url(self, query: str, country: str) -> str:
+    def build_search_url(
+        self,
+        query: str,
+        country: str = "US",
+        currency: str = "USD",
+        language: str = "en-US",
+        locale: str = "en_US",
+    ) -> str:
         return f"https://www.ebay.com/sch/i.html?_nkw={query.replace(' ', '+')}"
 
     def parse_listings(self, raw_content: str) -> List[ProductListingSchema]:

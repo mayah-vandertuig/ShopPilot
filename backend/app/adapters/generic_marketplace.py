@@ -8,6 +8,7 @@ from bs4 import BeautifulSoup
 
 from app.adapters.base import BaseMarketplaceAdapter
 from app.schemas import ProductListingSchema
+from app.services.marketplace_url import normalize_marketplace_url
 
 
 class GenericMarketplaceAdapter(BaseMarketplaceAdapter):
@@ -16,8 +17,23 @@ class GenericMarketplaceAdapter(BaseMarketplaceAdapter):
     supports_product_url = True
     supports_keyword_search = False
 
-    def build_search_url(self, query: str, country: str) -> str:
-        return f"https://www.google.com/search?q={query}"
+    def build_search_url(
+        self,
+        query: str,
+        country: str = "US",
+        currency: str = "USD",
+        language: str = "en-US",
+        locale: str = "en_US",
+    ) -> str:
+        url = f"https://www.google.com/search?q={query}"
+        return normalize_marketplace_url(
+            url,
+            platform=self.platform_name,
+            country=country,
+            language=language,
+            currency=currency,
+            locale=locale,
+        )
 
     def parse_listings(self, raw_content: str) -> List[ProductListingSchema]:
         soup = BeautifulSoup(raw_content, "lxml")

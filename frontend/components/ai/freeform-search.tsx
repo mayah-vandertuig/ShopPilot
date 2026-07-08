@@ -9,7 +9,7 @@ import { MessageSquare, Loader2 } from "lucide-react";
 
 const SAMPLE_QUESTIONS = [
   "What price range should I target?",
-  "Which keywords am I missing compared to competitors?",
+  "Which tags am I missing compared to competitors?",
   "How should I position my shop against competitors?",
   "What product ideas fit this niche?",
 ];

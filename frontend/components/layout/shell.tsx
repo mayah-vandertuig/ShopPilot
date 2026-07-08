@@ -1,5 +1,6 @@
 import { Sidebar } from "./sidebar";
 import { TopNav } from "./top-nav";
+import { MobileNav } from "./mobile-nav";
 
 export function Shell({
   children,
@@ -21,6 +22,7 @@ export function Shell({
       <Sidebar />
       <div className="flex min-w-0 flex-1 flex-col">
         <TopNav title={title} subtitle={subtitle} dataSource={dataSource} status={status} platform={platform} />
+        <MobileNav />
         <main className="flex-1 p-6 lg:p-8">{children}</main>
       </div>
     </div>

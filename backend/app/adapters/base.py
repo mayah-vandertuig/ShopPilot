@@ -14,12 +14,30 @@ class BaseMarketplaceAdapter(ABC):
     not_implemented_message: str = ""
 
     @abstractmethod
-    def build_search_url(self, query: str, country: str) -> str:
+    def build_search_url(
+        self,
+        query: str,
+        country: str = "US",
+        currency: str = "USD",
+        language: str = "en-US",
+        locale: str = "en_US",
+    ) -> str:
         pass
 
     @abstractmethod
     def parse_listings(self, raw_content: str) -> List[ProductListingSchema]:
         pass
+
+    def dedupe_listings(self, listings: List[ProductListingSchema]) -> List[ProductListingSchema]:
+        seen: set[str] = set()
+        unique: List[ProductListingSchema] = []
+        for listing in listings:
+            key = listing.url or listing.title
+            if key in seen:
+                continue
+            seen.add(key)
+            unique.append(listing)
+        return unique
 
     def normalize_listing(self, raw: dict) -> ProductListingSchema:
         return ProductListingSchema(

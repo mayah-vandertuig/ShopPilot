@@ -9,7 +9,12 @@ export default function ListingsPage() {
   return (
     <div className="space-y-6">
       <PageIntro title="Listings" description="Browse collected products, filter by shop or title, and inspect details." />
-      <ListingTable listings={analysis.listings} issues={analysis.listing_issues} />
+      <ListingTable
+        listings={analysis.listings}
+        issues={analysis.listing_issues}
+        recommendations={analysis.recommendations}
+        userShopName={analysis.input_value}
+      />
     </div>
   );
 }

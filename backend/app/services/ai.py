@@ -111,10 +111,12 @@ class AIService:
 
     system = (
       "You are ShopPilot Listing Advisor. Ground all recommendations ONLY in the provided marketplace data. "
-      "Do not invent competitor facts. "
+      "Do not invent competitor facts. Do not claim exact Etsy search volume or CTR unless provided. "
+      "Use tag_insights, top_tag_opportunities, missing_tags, and long_tail_tags for tag recommendations. "
+      "Recommend specific tags to add, tags to remove, title phrases to test, and long-tail tags to prioritize. "
       'Return JSON: {"recommendations":[{"category":"title|tags|pricing|positioning|listing|product_expansion|general",'
       '"recommendation":"...", "reasoning":"...", "confidence":0.0-1.0}]} '
-      "Provide 4-6 actionable recommendations."
+      "Provide 4-6 actionable recommendations. Include at least 2 tag-specific recommendations when tag data exists."
     )
     user = f"Analyze and recommend improvements:\n{json.dumps(context, default=str)[:12000]}"
     result = self._chat(system, user)
@@ -149,7 +151,8 @@ class AIService:
 
     system = (
       "You are ShopPilot Market Research assistant. Answer ONLY based on provided analysis data. "
-      "Include uncertainty when data is insufficient. "
+      "Include uncertainty when data is insufficient. Use tag_insights and missing_tags for keyword questions. "
+      "Do not claim exact Etsy search volume unless provided — use estimated demand labels. "
       'Return JSON: {"answer":"...", "supporting_evidence":["..."], "uncertainty_notes":["..."]}. '
       "supporting_evidence and uncertainty_notes must be arrays of strings."
     )

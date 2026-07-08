@@ -34,6 +34,19 @@ ShopPilot does **not** use mock marketplace data. If live collection fails, the 
 
 Successful analyses are labeled `data_source: "live"`.
 
+## Troubleshooting
+
+### Problem: Results coming back in Spanish or wrong locale
+
+Fixes:
+
+- Set Bright Data geo/country to US.
+- Use English language settings.
+- Add platform URL locale params (`hl=en`, `gl=us`, Etsy `locale_override=en-US`, `ship_to=US`, `currency=USD`).
+- Clear localized cookies/session in Bright Data unlocker or crawler profiles.
+- Confirm `country`, `language`, and `locale` values in the analysis request.
+- Use mock fallback if live data is localized incorrectly (ShopPilot returns a warning and sample listings when parsing quality is poor).
+
 ## SDK Usage
 
 ```python

@@ -11,18 +11,16 @@ import { Badge, dataSourceBadgeVariant, dataSourceLabel } from "@/components/ui/
 import { Skeleton } from "@/components/ui/skeleton";
 import { createAnalysis, getAnalyses } from "@/lib/api";
 import { ShopAnalysisForm } from "@/components/analysis/shop-analysis-form";
-import { PLATFORMS, INPUT_TYPES, COUNTRIES, CURRENCIES, type Analysis } from "@/lib/types";
+import { PLATFORMS, INPUT_TYPES, COUNTRY_OPTIONS, CURRENCIES, LANGUAGE_OPTIONS, type Analysis } from "@/lib/types";
 import { formatDate } from "@/lib/utils";
 import {
-  BarChart3, Search, DollarSign, AlertTriangle, TrendingUp, Sparkles, Package, Wrench, Loader2, ArrowRight, Store,
+  BarChart3, Search, AlertTriangle, Sparkles, Package, Wrench, Loader2, ArrowRight, Store,
 } from "lucide-react";
 
 const features = [
   { icon: BarChart3, title: "Competitor Intelligence", desc: "Compare shops, reviews, and positioning across marketplaces." },
-  { icon: DollarSign, title: "Pricing Analysis", desc: "Find optimal price ranges with under/overpriced detection." },
   { icon: AlertTriangle, title: "Listing Audits", desc: "Detect weak titles, missing tags, and thin descriptions." },
-  { icon: TrendingUp, title: "Trend Discovery", desc: "Spot recurring styles, materials, and use cases." },
-  { icon: Sparkles, title: "AI Recommendations", desc: "Get grounded title, tag, and pricing suggestions." },
+  { icon: Sparkles, title: "AI Recommendations", desc: "Get grounded title, tag, and positioning suggestions." },
   { icon: Package, title: "Product Expansion", desc: "Discover new product ideas from market gaps." },
   { icon: Wrench, title: "Codex Adapter Repair", desc: "Developer tools for maintaining marketplace extractors." },
 ];
@@ -65,6 +63,7 @@ export default function HomePage() {
   const [inputValue, setInputValue] = useState("minimalist wall art");
   const [country, setCountry] = useState("US");
   const [currency, setCurrency] = useState("USD");
+  const [language, setLanguage] = useState("en-US");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [recent, setRecent] = useState<Analysis[]>([]);
@@ -94,6 +93,8 @@ export default function HomePage() {
         input_value: inputValue,
         country,
         currency,
+        language,
+        locale: language.replace("-", "_"),
       });
       router.push(`/analyses/${result.id}`);
     } catch (e) {
@@ -116,8 +117,8 @@ export default function HomePage() {
           </h2>
           <p className="text-base text-muted-foreground max-w-3xl leading-relaxed">
             {isEtsy
-              ? "Enter an Etsy shop name to analyze its listings, pricing, keywords, and competitors."
-              : "Analyze listings, competitors, pricing, keywords, and trends across marketplaces."}
+              ? "Enter an Etsy shop name to analyze its listings, keywords, and competitors."
+              : "Analyze listings, competitors, and keywords across marketplaces."}
           </p>
         </div>
 
@@ -129,7 +130,7 @@ export default function HomePage() {
             </CardTitle>
             <CardDescription>
               {isEtsy
-                ? "Use the shop name from the Etsy URL — e.g. for etsy.com/shop/ArtStudioCo, enter ArtStudioCo."
+                ? "Use the shop name from the Etsy URL — e.g. for etsy.com/shop/SanFranciscoStudio, enter SanFranciscoStudio."
                 : "Enter a shop URL, product URL, marketplace URL, or niche keyword."}
             </CardDescription>
           </CardHeader>
@@ -141,7 +142,11 @@ export default function HomePage() {
                     {PLATFORMS.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
                   </Select>
                 </Field>
-                <ShopAnalysisForm initialCountry={country} initialCurrency={currency} />
+                <ShopAnalysisForm
+                  initialCountry={country}
+                  initialCurrency={currency}
+                  initialLanguage={language}
+                />
               </div>
             ) : (
               <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
@@ -165,7 +170,12 @@ export default function HomePage() {
                 </Field>
                 <Field label="Country">
                   <Select value={country} onChange={(e) => setCountry(e.target.value)}>
-                    {COUNTRIES.map((c) => <option key={c} value={c}>{c}</option>)}
+                    {COUNTRY_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                  </Select>
+                </Field>
+                <Field label="Language">
+                  <Select value={language} onChange={(e) => setLanguage(e.target.value)}>
+                    {LANGUAGE_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
                   </Select>
                 </Field>
                 <Field label="Currency">

@@ -18,6 +18,7 @@ from app.schemas import (
   ListingRead,
   PricingSummary,
   RecommendationRead,
+  TrendRead,
 )
 from app.exceptions import IngestionError
 from app.services.analysis_runner import AnalysisRunner
@@ -40,12 +41,27 @@ def _listing_for_ai(listing: Listing) -> dict:
 
 
 def _ai_context(analysis: Analysis, listings: list, competitors: list, issues: list, trends: list) -> dict:
+  keyword_summary = json.loads(analysis.keyword_summary_json or "{}")
+  tag_insights = keyword_summary.get("tag_insights", [])[:15]
   return {
     "platform": analysis.platform,
     "input_type": analysis.input_type,
     "input_value": analysis.input_value,
     "pricing_summary": json.loads(analysis.pricing_summary_json or "{}"),
-    "keyword_summary": json.loads(analysis.keyword_summary_json or "{}"),
+    "keyword_summary": keyword_summary,
+    "tag_insights": tag_insights,
+    "top_tag_opportunities": [
+      {
+        "tag": i.get("tag"),
+        "opportunity_score": i.get("opportunity_score"),
+        "competitor_usage_count": i.get("competitor_usage_count"),
+        "user_usage_count": i.get("user_usage_count"),
+        "suggested_action": i.get("suggested_action"),
+      }
+      for i in sorted(tag_insights, key=lambda x: x.get("opportunity_score", 0), reverse=True)[:8]
+    ],
+    "missing_tags": keyword_summary.get("missing_tag_opportunities", [])[:5],
+    "long_tail_tags": keyword_summary.get("long_tail_opportunities", [])[:5],
     "listing_count": len(listings),
     "listings": [_listing_for_ai(l) for l in listings[:15]],
     "competitors": [
@@ -74,7 +90,7 @@ def _ai_context(analysis: Analysis, listings: list, competitors: list, issues: l
   }
 
 
-def _analysis_to_detail(analysis: Analysis, db: Session, warning: str = None) -> AnalysisDetail:
+def _analysis_to_detail(analysis: Analysis, db: Session, warning: str = None, generated_queries: list = None) -> AnalysisDetail:
   listings = db.query(Listing).filter(Listing.analysis_id == analysis.id).all()
   competitors = db.query(Competitor).filter(Competitor.analysis_id == analysis.id).all()
   issues = db.query(ListingIssue).filter(ListingIssue.analysis_id == analysis.id).all()
@@ -91,7 +107,31 @@ def _analysis_to_detail(analysis: Analysis, db: Session, warning: str = None) ->
       url=l.url, shop_name=l.shop_name, price=l.price, currency=l.currency,
       rating=l.rating, review_count=l.review_count, image_url=l.image_url,
       description=l.description, tags=l.tags, detected_keywords=l.detected_keywords,
+      listing_source=getattr(l, "listing_source", "user_shop") or "user_shop",
     ))
+
+  trend_reads = []
+  for t in trends:
+    details = getattr(t, "details", {}) or {}
+    trend_reads.append(TrendRead(
+      id=t.id,
+      analysis_id=t.analysis_id,
+      trend_name=t.trend_name,
+      trend_type=t.trend_type,
+      evidence=t.evidence,
+      opportunity=t.opportunity,
+      competitor_examples=details.get("competitor_examples", []),
+      suggested_product_idea=details.get("suggested_product_idea", ""),
+      keywords=details.get("keywords", []),
+      price_range=details.get("price_range", ""),
+      confidence=float(details.get("confidence", 0.0) or 0.0),
+    ))
+
+  user_shop_key = (analysis.input_value or "").lower().replace("-", "").replace("_", "").replace(" ", "")
+  filtered_competitors = [
+    c for c in competitors
+    if c.competitor_name.lower().replace("-", "").replace("_", "").replace(" ", "") != user_shop_key
+  ]
 
   return AnalysisDetail(
     id=analysis.id, platform=analysis.platform, input_type=analysis.input_type,
@@ -103,13 +143,16 @@ def _analysis_to_detail(analysis: Analysis, db: Session, warning: str = None) ->
     competitors=[CompetitorRead(
       id=c.id, analysis_id=c.analysis_id, competitor_name=c.competitor_name,
       platform=c.platform, product_count=c.product_count, average_price=c.average_price,
-      total_reviews=c.total_reviews, common_keywords=c.common_keywords,
-      positioning_summary=c.positioning_summary,
-    ) for c in competitors],
+      total_reviews=c.total_reviews, average_rating=c.average_rating,
+      common_keywords=c.common_keywords, matched_queries=c.matched_queries,
+      example_listing_urls=c.example_listing_urls, example_listing_titles=c.example_listing_titles,
+      match_score=c.match_score, positioning_summary=c.positioning_summary,
+    ) for c in sorted(filtered_competitors, key=lambda item: (item.match_score, item.product_count), reverse=True)],
     listing_issues=issues,
     recommendations=[RecommendationRead.model_validate(r) for r in recommendations],
-    trends=trends,
+    trends=trend_reads,
     warning=warning,
+    generated_queries=generated_queries or [],
   )
 
 
@@ -121,7 +164,8 @@ def create_analysis(request: AnalysisCreate, db: Session = Depends(get_db)):
   except IngestionError as e:
     raise HTTPException(status_code=422, detail=e.message) from e
   warning = getattr(analysis, "_warning", None)
-  return _analysis_to_detail(analysis, db, warning)
+  generated_queries = getattr(analysis, "_generated_queries", []) or []
+  return _analysis_to_detail(analysis, db, warning, generated_queries)
 
 
 @router.get("", response_model=List[AnalysisRead])

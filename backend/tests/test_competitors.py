@@ -13,3 +13,14 @@ def test_groups_by_shop():
   shop1 = next(r for r in result if r["competitor_name"] == "Shop1")
   assert shop1["product_count"] == 2
   assert shop1["total_reviews"] == 8
+  assert "match_score" in shop1
+
+
+def test_ignores_listings_without_shop_name():
+  listings = [
+    ProductListingSchema(platform="etsy", title="A", shop_name="", price=10, review_count=5),
+    ProductListingSchema(platform="etsy", title="B", shop_name="Shop2", price=30, review_count=10),
+  ]
+  result = analyze_competitors(listings, 1, "etsy")
+  assert len(result) == 1
+  assert result[0]["competitor_name"] == "Shop2"

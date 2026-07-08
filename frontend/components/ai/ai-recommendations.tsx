@@ -100,12 +100,12 @@ export function AIRecommendations({
         })}
         {recommendations.length === 0 && !error && !disabled && (
           <p className="text-sm text-muted-foreground text-center py-8">
-            Click Generate for AI-powered title, tag, pricing, and expansion recommendations.
+            Click Generate for AI-powered title, tag, pricing, positioning, and product expansion recommendations.
           </p>
         )}
-        {disabled && (
+        {disabled && recommendations.length === 0 && (
           <p className="text-sm text-muted-foreground text-center py-8">
-            Scrape listing data first — the AI advisor needs products from your analysis.
+            OpenAI is not configured. Pre-seeded expansion ideas may still appear after analysis; add OPENAI_API_KEY to generate live recommendations.
           </p>
         )}
       </CardContent>

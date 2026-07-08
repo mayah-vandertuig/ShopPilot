@@ -1,9 +1,7 @@
 import {
   LayoutDashboard,
-  DollarSign,
   Users,
   Hash,
-  TrendingUp,
   List,
   Sparkles,
   Wrench,
@@ -27,10 +25,8 @@ export function getAnalysisNav(analysisId: number): NavItem[] {
   const base = `/analyses/${analysisId}`;
   return [
     { label: "Overview", href: base, icon: LayoutDashboard, matchExact: true },
-    { label: "Pricing", href: `${base}/pricing`, icon: DollarSign },
     { label: "Competitors", href: `${base}/competitors`, icon: Users },
-    { label: "Keywords", href: `${base}/keywords`, icon: Hash },
-    { label: "Trends", href: `${base}/trends`, icon: TrendingUp },
+    { label: "Keyword & Tag Intelligence", href: `${base}/keywords`, icon: Hash },
     { label: "Listings", href: `${base}/listings`, icon: List },
     { label: "AI Advisor", href: `${base}/ai-advisor`, icon: Sparkles },
   ];

@@ -50,6 +50,7 @@ class Listing(Base):
     tags_json = Column(Text, default="[]")
     detected_keywords_json = Column(Text, default="[]")
     raw_data_json = Column(Text, default="{}")
+    listing_source = Column(String(20), default="user_shop")
 
     analysis = relationship("Analysis", back_populates="listings")
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -81,7 +82,13 @@ class Competitor(Base):
     product_count = Column(Integer, default=0)
     average_price = Column(Float, default=0.0)
     total_reviews = Column(Integer, default=0)
+    average_rating = Column(Float, default=0.0)
     common_keywords_json = Column(Text, default="[]")
+    matched_queries_json = Column(Text, default="[]")
+    example_listing_urls_json = Column(Text, default="[]")
+    example_listing_titles_json = Column(Text, default="[]")
+    competing_listings_json = Column(Text, default="[]")
+    match_score = Column(Float, default=0.0)
     positioning_summary = Column(Text, default="")
 
     analysis = relationship("Analysis", back_populates="competitors")
@@ -93,6 +100,38 @@ class Competitor(Base):
     @common_keywords.setter
     def common_keywords(self, value: list):
         self.common_keywords_json = json.dumps(value)
+
+    @property
+    def matched_queries(self) -> list:
+        return json.loads(self.matched_queries_json or "[]")
+
+    @matched_queries.setter
+    def matched_queries(self, value: list):
+        self.matched_queries_json = json.dumps(value)
+
+    @property
+    def example_listing_urls(self) -> list:
+        return json.loads(self.example_listing_urls_json or "[]")
+
+    @example_listing_urls.setter
+    def example_listing_urls(self, value: list):
+        self.example_listing_urls_json = json.dumps(value)
+
+    @property
+    def example_listing_titles(self) -> list:
+        return json.loads(self.example_listing_titles_json or "[]")
+
+    @example_listing_titles.setter
+    def example_listing_titles(self, value: list):
+        self.example_listing_titles_json = json.dumps(value)
+
+    @property
+    def competing_listings(self) -> list:
+        return json.loads(self.competing_listings_json or "[]")
+
+    @competing_listings.setter
+    def competing_listings(self, value: list):
+        self.competing_listings_json = json.dumps(value)
 
 
 class ListingIssue(Base):
@@ -133,8 +172,17 @@ class Trend(Base):
     trend_type = Column(String(100), default="")
     evidence = Column(Text, default="")
     opportunity = Column(Text, default="")
+    details_json = Column(Text, default="{}")
 
     analysis = relationship("Analysis", back_populates="trends")
+
+    @property
+    def details(self) -> dict:
+        return json.loads(self.details_json or "{}")
+
+    @details.setter
+    def details(self, value: dict):
+        self.details_json = json.dumps(value)
 
 
 class CodexRun(Base):

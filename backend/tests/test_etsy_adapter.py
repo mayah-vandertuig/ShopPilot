@@ -189,3 +189,56 @@ def test_parse_listings_from_nested_embedded_json():
   assert len(listings) == 1
   assert listings[0].title == "Nested JSON listing"
   assert listings[0].shop_name == "NestedShop"
+
+
+def test_parse_listing_page_tags_use_canonical_href_not_translated_label():
+  adapter = EtsyAdapter()
+  html = """
+  <html><body>
+    <a class="wt-tag" href="/market/minimalist_wall_art">Arte minimalista</a>
+    <a class="wt-tag" href="/search?tags=wall+art&q=wall+art">Arte de pared</a>
+  </body></html>
+  """
+  tags = adapter.parse_listing_page_tags(html)
+  assert "minimalist wall art" in tags
+  assert "wall art" in tags
+  assert "Arte minimalista" not in tags
+  assert "Arte de pared" not in tags
+
+
+def test_enrich_listing_tags_ignore_localized_json_labels():
+  adapter = EtsyAdapter()
+  payload = {
+    "listings": [
+      {
+        "listing_id": 12345,
+        "title": "Minimal Wall Art Print on Canvas",
+        "url": "https://www.etsy.com/listing/12345/minimal-wall-art",
+        "tags": [
+          {"name": "Arte minimalista", "slug": "minimalist_wall_art"},
+          {"name": "Arte de pared", "slug": "wall_art"},
+          "Arte decorativa",
+        ],
+      }
+    ]
+  }
+  html = f"""
+  <html><body>
+    <div data-listing-id="12345">
+      <a class="wt-tag" href="/market/minimalist_wall_art">Arte minimalista</a>
+      <a class="wt-tag" href="/search?tags=wall+art&q=wall+art">Arte de pared</a>
+    </div>
+    <script type="application/json">{json.dumps(payload)}</script>
+  </body></html>
+  """
+  listings = adapter.parse_listings(html)
+  enriched = adapter.enrich_listing_tags(listings, html)
+  assert "minimalist wall art" in enriched[0].tags
+  assert "wall art" in enriched[0].tags
+  assert not any("arte" in tag.lower() for tag in enriched[0].tags)
+
+
+def test_shop_keys_match_display_name_and_slug():
+  adapter = EtsyAdapter()
+  assert adapter.shop_keys_match("ArtStudioCo", "art studio co")
+  assert not adapter.shop_keys_match("ArtStudioCo", "OtherShop")

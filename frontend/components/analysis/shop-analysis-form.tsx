@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { createAnalysis } from "@/lib/api";
 import { normalizeEtsyShopInput } from "@/lib/etsy";
-import { COUNTRIES, CURRENCIES } from "@/lib/types";
+import { COUNTRY_OPTIONS, CURRENCIES, LANGUAGE_OPTIONS } from "@/lib/types";
 import { Loader2 } from "lucide-react";
 
 const SHOP_NAME_STORAGE_KEY = "shoppilot_last_shop_name";
@@ -16,6 +16,7 @@ type ShopAnalysisFormProps = {
   initialShopName?: string;
   initialCountry?: string;
   initialCurrency?: string;
+  initialLanguage?: string;
   compact?: boolean;
   onSuccess?: () => void;
 };
@@ -24,6 +25,7 @@ export function ShopAnalysisForm({
   initialShopName = "",
   initialCountry = "US",
   initialCurrency = "USD",
+  initialLanguage = "en-US",
   compact = false,
   onSuccess,
 }: ShopAnalysisFormProps) {
@@ -31,6 +33,7 @@ export function ShopAnalysisForm({
   const [shopName, setShopName] = useState(initialShopName);
   const [country, setCountry] = useState(initialCountry);
   const [currency, setCurrency] = useState(initialCurrency);
+  const [language, setLanguage] = useState(initialLanguage);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -62,6 +65,8 @@ export function ShopAnalysisForm({
         input_value: normalized,
         country,
         currency,
+        language,
+        locale: language.replace("-", "_"),
       });
       window.localStorage.setItem(SHOP_NAME_STORAGE_KEY, normalized);
       onSuccess?.();
@@ -117,7 +122,7 @@ export function ShopAnalysisForm({
             value={shopName}
             onChange={(e) => setShopName(e.target.value)}
             onBlur={(e) => setShopName(normalizeEtsyShopInput(e.target.value))}
-            placeholder="ArtStudioCo"
+            placeholder="SanFranciscoStudio"
             disabled={loading}
             className="w-full"
           />
@@ -128,9 +133,19 @@ export function ShopAnalysisForm({
 
         <Field label="Country" htmlFor="etsy-country">
           <Select id="etsy-country" value={country} onChange={(e) => setCountry(e.target.value)} disabled={loading}>
-            {COUNTRIES.map((c) => (
-              <option key={c} value={c}>
-                {c}
+            {COUNTRY_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </Select>
+        </Field>
+
+        <Field label="Language" htmlFor="etsy-language">
+          <Select id="etsy-language" value={language} onChange={(e) => setLanguage(e.target.value)} disabled={loading}>
+            {LANGUAGE_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
               </option>
             ))}
           </Select>
