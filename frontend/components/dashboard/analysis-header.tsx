@@ -1,13 +1,16 @@
 "use client";
 
 import { Badge, dataSourceBadgeVariant, dataSourceLabel } from "@/components/ui/badge";
+import { ShopAnalysisForm } from "@/components/analysis/shop-analysis-form";
 import { formatDate } from "@/lib/utils";
 import type { AnalysisDetail } from "@/lib/types";
 import { Calendar, Globe } from "lucide-react";
 
 export function AnalysisHeader({ analysis }: { analysis: AnalysisDetail }) {
+  const isEtsyShop = analysis.platform === "etsy" && analysis.input_type === "shop_name";
+
   return (
-    <div className="dashboard-card p-6">
+    <div className="dashboard-card p-6 space-y-5">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="space-y-2 min-w-0">
           <p className="text-xs font-semibold uppercase tracking-wider text-primary">Market Analysis</p>
@@ -31,7 +34,20 @@ export function AnalysisHeader({ analysis }: { analysis: AnalysisDetail }) {
           </Badge>
         </div>
       </div>
-      {analysis.warning && <div className="alert-warning mt-4">{analysis.warning}</div>}
+
+      {isEtsyShop && (
+        <div className="rounded-xl border border-border bg-muted/20 p-4">
+          <p className="text-sm font-medium text-foreground mb-3">Analyze a different Etsy shop</p>
+          <ShopAnalysisForm
+            compact
+            initialShopName=""
+            initialCountry={analysis.country}
+            initialCurrency={analysis.currency}
+          />
+        </div>
+      )}
+
+      {analysis.warning && <div className="alert-warning">{analysis.warning}</div>}
     </div>
   );
 }

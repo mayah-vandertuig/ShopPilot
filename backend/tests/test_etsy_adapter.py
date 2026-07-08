@@ -128,6 +128,47 @@ def test_enrich_shop_listings_sets_shop_name():
   assert enriched[0].shop_name == "ArtStudioCo"
 
 
+def test_enrich_listing_tags_from_embedded_json():
+  adapter = EtsyAdapter()
+  payload = {
+    "listings": [
+      {
+        "listing_id": 12345,
+        "title": "Minimal Wall Art Print on Canvas",
+        "url": "https://www.etsy.com/listing/12345/minimal-wall-art",
+        "tags": ["wall art", "minimalist", "canvas print"],
+      }
+    ]
+  }
+  html = f'<html><script type="application/json">{json.dumps(payload)}</script></html>'
+  listings = adapter.parse_listings(html)
+  enriched = adapter.enrich_listing_tags(listings, html)
+  assert enriched[0].tags
+  assert "minimalist" in enriched[0].tags
+
+
+def test_infer_tags_from_listing_title():
+  adapter = EtsyAdapter()
+  listing = adapter._listing_from_record({
+    "title": "Minimalist Scandinavian Wall Art Print",
+    "url": "https://www.etsy.com/listing/1/sample",
+    "price": 10,
+  })
+  finalized = adapter.finalize_listings([listing])[0]
+  assert finalized.tags == []
+  assert finalized.detected_keywords
+
+
+def test_tags_from_record_ignores_materials():
+  adapter = EtsyAdapter()
+  tags = adapter._tags_from_record({
+    "tags": ["wall art", "minimalist print"],
+    "materials": ["canvas", "wood"],
+  })
+  assert "wall art" in tags
+  assert "canvas" not in tags
+
+
 def test_parse_listings_from_nested_embedded_json():
   adapter = EtsyAdapter()
   payload = {

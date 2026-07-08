@@ -86,7 +86,9 @@ export function ListingTable({
                       <td className="py-3 pr-4 font-medium">{formatCurrency(l.price, l.currency)}</td>
                       <td className="py-3 pr-4">{l.rating > 0 ? l.rating.toFixed(1) : "—"}</td>
                       <td className="py-3 pr-4">{l.review_count || "—"}</td>
-                      <td className="py-3 pr-4 max-w-[140px] truncate text-muted-foreground">{l.tags.slice(0, 3).join(", ")}</td>
+                      <td className="py-3 pr-4 max-w-[140px] truncate text-muted-foreground">
+                        {l.tags.slice(0, 3).join(", ") || "—"}
+                      </td>
                       <td className="py-3">
                         {(issueCountByListing.get(l.id) || 0) > 0 ? (
                           <Badge variant="warning">{issueCountByListing.get(l.id)}</Badge>

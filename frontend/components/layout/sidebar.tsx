@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BarChart3 } from "lucide-react";
+import { BarChart3, PlusCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getAnalysisNav, getAnalysisViewNav, getHomeNav, isNavActive, utilityNav } from "@/lib/navigation";
 
@@ -69,6 +69,14 @@ export function Sidebar() {
             {analysisId ? "Analysis" : "Main"}
           </p>
           <div className="space-y-0.5">
+            {analysisId && (
+              <NavLink
+                href="/"
+                label="New analysis"
+                icon={PlusCircle}
+                active={false}
+              />
+            )}
             {mainNav.map((item) => (
               <NavLink
                 key={item.href}

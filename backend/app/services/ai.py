@@ -10,11 +10,6 @@ from app.exceptions import IngestionError
 
 logger = logging.getLogger(__name__)
 
-LANGUAGE_POLICY = (
-  "Write ALL recommendations, reasoning, answers, evidence, and notes in English. "
-  "You may quote original product titles from the data as-is, but never respond in Spanish or any other language."
-)
-
 
 def _parse_json_from_llm(text: str) -> Any:
   cleaned = text.strip()
@@ -117,7 +112,6 @@ class AIService:
     system = (
       "You are ShopPilot Listing Advisor. Ground all recommendations ONLY in the provided marketplace data. "
       "Do not invent competitor facts. "
-      f"{LANGUAGE_POLICY} "
       'Return JSON: {"recommendations":[{"category":"title|tags|pricing|positioning|listing|product_expansion|general",'
       '"recommendation":"...", "reasoning":"...", "confidence":0.0-1.0}]} '
       "Provide 4-6 actionable recommendations."
@@ -156,11 +150,10 @@ class AIService:
     system = (
       "You are ShopPilot Market Research assistant. Answer ONLY based on provided analysis data. "
       "Include uncertainty when data is insufficient. "
-      f"{LANGUAGE_POLICY} "
       'Return JSON: {"answer":"...", "supporting_evidence":["..."], "uncertainty_notes":["..."]}. '
       "supporting_evidence and uncertainty_notes must be arrays of strings."
     )
-    user = f"Question (answer in English): {question}\n\nData:\n{json.dumps(context, default=str)[:12000]}"
+    user = f"Question: {question}\n\nData:\n{json.dumps(context, default=str)[:12000]}"
     result = self._chat(system, user)
     try:
       parsed = _parse_json_from_llm(result)

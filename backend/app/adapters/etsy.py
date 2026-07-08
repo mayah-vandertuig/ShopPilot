@@ -18,11 +18,17 @@ MARKDOWN_LINK_RE = re.compile(
     re.I,
 )
 JUNK_TITLE_RE = re.compile(
-    r"^(add to|favorite|favourite|etsy|shop all|see more|view all|cart|help|sign in|register|search)",
+    r"^(add to|favorite|favourite|etsy|shop all|see more|view all|cart|help|sign in|register|search|"
+    r"añadir|agregar|anadir|favorito|favoritos|carrito|ver más|ver mas|ver todo|iniciar sesión|iniciar sesion|"
+    r"registrarse|buscar|ayuda|tienda|artículo|articulo|envío|envio|comprar|vendido|explorar)",
     re.I,
 )
 MIN_TITLE_LENGTH = 8
 ETSY_LOCALE = "en-US"
+TAG_JUNK = {
+    "free shipping", "etsy", "handmade", "personalized", "custom", "sale", "new",
+    "add to cart", "shop all", "view all",
+}
 
 
 def with_etsy_locale(url: str, country: str = "") -> str:
@@ -32,6 +38,8 @@ def with_etsy_locale(url: str, country: str = "") -> str:
         query["locale_override"] = [ETSY_LOCALE]
     if country and "ship_to" not in query:
         query["ship_to"] = [country]
+    if "currency" not in query:
+        query["currency"] = ["USD"]
     flat = {key: values[0] for key, values in query.items() if values}
     return urlunparse(parsed._replace(query=urlencode(flat)))
 
@@ -99,7 +107,7 @@ class EtsyAdapter(BaseMarketplaceAdapter):
         return self.dedupe_listings(listings)
 
     def dedupe_listings(self, listings: List[ProductListingSchema]) -> List[ProductListingSchema]:
-        return self._dedupe([listing for listing in listings if self.is_valid_listing(listing)])
+        return self.finalize_listings(self._dedupe([listing for listing in listings if self.is_valid_listing(listing)]))
 
     def enrich_shop_listings(self, listings: List[ProductListingSchema], shop_slug: str) -> List[ProductListingSchema]:
         display_name = shop_slug.replace("-", " ").strip()
@@ -107,6 +115,152 @@ class EtsyAdapter(BaseMarketplaceAdapter):
             if not listing.shop_name or listing.shop_name.lower() in {"unknown shop", "etsy"}:
                 listing.shop_name = display_name
         return listings
+
+    def enrich_listing_tags(self, listings: List[ProductListingSchema], raw_content: str) -> List[ProductListingSchema]:
+        tag_index = self._build_tag_index(raw_content)
+        for listing in listings:
+            listing_id = self._listing_key(listing.url)
+            if listing_id and listing_id in tag_index:
+                listing.tags = tag_index[listing_id]
+            elif listing.raw_data:
+                listing.tags = self._tags_from_record(listing.raw_data)
+        return self.finalize_listings(listings)
+
+    def enrich_listings_from_detail_pages(
+        self,
+        listings: List[ProductListingSchema],
+        bright_data: Any,
+        country: str = "US",
+        max_listings: int = 8,
+    ) -> List[ProductListingSchema]:
+        if bright_data is None or not getattr(bright_data, "is_available", False):
+            return self.finalize_listings(listings)
+
+        enriched = 0
+        for listing in listings:
+            if listing.tags or not listing.url or enriched >= max_listings:
+                continue
+            detail_url = with_etsy_locale(listing.url, country=country)
+            content, _, error = bright_data.scrape_url(detail_url, country=country, platform="etsy")
+            if not content or error:
+                continue
+            tags = self.parse_listing_page_tags(content)
+            if tags:
+                listing.tags = tags
+                enriched += 1
+        return self.finalize_listings(listings)
+
+    def parse_listing_page_tags(self, raw_content: str) -> List[str]:
+        tags: List[str] = []
+        soup = BeautifulSoup(raw_content, "lxml")
+
+        for link in soup.select("a.wt-tag, a[data-tag], a[href*='tags=']"):
+            href = link.get("href", "")
+            if "tags=" not in href and "tag=" not in href and "wt-tag" not in " ".join(link.get("class", [])):
+                continue
+            text = re.sub(r"\s+", " ", link.get_text(" ", strip=True))
+            if text and 2 <= len(text) <= 40:
+                tags.append(text)
+
+        for script in soup.find_all("script", attrs={"type": "application/ld+json"}):
+            payload = self._load_json(html.unescape(script.string or script.get_text() or ""))
+            if isinstance(payload, dict):
+                tags.extend(self._tags_from_record(payload))
+
+        return self._dedupe_tags(tags)
+
+    def finalize_listings(self, listings: List[ProductListingSchema]) -> List[ProductListingSchema]:
+        for listing in listings:
+            listing.shop_name = self._resolve_shop_name(listing.shop_name, listing.url, listing.raw_data)
+            listing.tags = self._dedupe_tags(listing.tags)
+            listing.detected_keywords = [
+                word.lower()
+                for word in re.findall(r"[a-zA-Z]{3,}", listing.title)
+                if word.lower() not in {"the", "and", "for", "with", "from", "your", "etsy"}
+            ][:15]
+        return listings
+
+    def _resolve_shop_name(self, shop_name: str, url: str, raw_data: dict | None) -> str:
+        if shop_name and shop_name.lower() not in {"unknown shop", "etsy", ""}:
+            return shop_name
+        if isinstance(raw_data, dict):
+            for key in ("shop_name", "seller", "store_name"):
+                value = raw_data.get(key)
+                if isinstance(value, str) and value.strip():
+                    return value.strip()
+                if isinstance(value, dict) and value.get("name"):
+                    return str(value["name"]).strip()
+        return shop_name or ""
+
+    def _tags_from_record(self, record: dict) -> List[str]:
+        tags: List[str] = []
+        for key in ("tags", "tag_list"):
+            value = record.get(key)
+            if isinstance(value, list):
+                tags.extend(str(item).strip() for item in value if str(item).strip())
+            elif isinstance(value, str) and value.strip():
+                if "," in value:
+                    tags.extend(part.strip() for part in value.split(",") if part.strip())
+                else:
+                    tags.append(value.strip())
+        return self._dedupe_tags(tags)
+
+    def _dedupe_tags(self, tags: List[str]) -> List[str]:
+        unique: List[str] = []
+        seen: set[str] = set()
+        for tag in tags:
+            cleaned = re.sub(r"\s+", " ", str(tag).strip())
+            if not cleaned or len(cleaned) < 2:
+                continue
+            key = cleaned.lower()
+            if key in seen or key in TAG_JUNK:
+                continue
+            seen.add(key)
+            unique.append(cleaned[:50])
+        return unique[:13]
+
+    def _build_tag_index(self, raw_content: str) -> dict[str, List[str]]:
+        index: dict[str, List[str]] = {}
+
+        def store(key: str, tags: List[str]) -> None:
+            if key and tags:
+                index[key] = self._dedupe_tags([*index.get(key, []), *tags])
+
+        def walk(node: Any) -> None:
+            if isinstance(node, dict):
+                tags = self._tags_from_record(node)
+                if not tags:
+                    for value in node.values():
+                        walk(value)
+                    return
+                listing_id = node.get("listing_id") or node.get("listingId")
+                url = str(node.get("url") or node.get("listing_url") or node.get("product_url") or "")
+                if listing_id is not None:
+                    store(str(listing_id), tags)
+                url_key = self._listing_key(url)
+                if url_key:
+                    store(url_key, tags)
+                return
+            if isinstance(node, list):
+                for item in node:
+                    walk(item)
+
+        stripped = raw_content.strip()
+        if stripped.startswith("{") or stripped.startswith("["):
+            payload = self._load_json(stripped)
+            if payload is not None:
+                walk(payload)
+
+        soup = BeautifulSoup(raw_content, "lxml")
+        for script in soup.find_all("script"):
+            text = html.unescape(script.string or script.get_text() or "").strip()
+            if not text.startswith(("{", "[")):
+                continue
+            payload = self._load_json(text)
+            if payload is not None:
+                walk(payload)
+
+        return index
 
     def is_valid_listing(self, listing: ProductListingSchema) -> bool:
         if not self._listing_key(listing.url):
@@ -116,7 +270,20 @@ class EtsyAdapter(BaseMarketplaceAdapter):
             return False
         if JUNK_TITLE_RE.search(title):
             return False
-        if title.lower() in {"etsy listing", "listing"}:
+        if title.lower() in {"etsy listing", "listing", "artículo de etsy", "articulo de etsy"}:
+            return False
+        lowered = title.lower()
+        if any(
+            phrase in lowered
+            for phrase in (
+                "añadir al carrito",
+                "agregar al carrito",
+                "añadir a favoritos",
+                "iniciar sesión",
+                "ver más",
+                "envío gratis",
+            )
+        ):
             return False
         return True
 
@@ -337,9 +504,7 @@ class EtsyAdapter(BaseMarketplaceAdapter):
             image_url = image_url.get("url", "")
 
         description = record.get("description") or ""
-        tags = record.get("tags") or record.get("keywords") or []
-        if isinstance(tags, str):
-            tags = [t.strip() for t in tags.split(",") if t.strip()]
+        tags = self._tags_from_record(record)
 
         rating = record.get("rating", 0.0)
         review_count = record.get("review_count", 0)
@@ -486,6 +651,14 @@ class EtsyAdapter(BaseMarketplaceAdapter):
             )
             if shop_el:
                 shop_name = shop_el.get_text(" ", strip=True)
+            if not shop_name:
+                shop_link = scope.select_one('a[href*="/shop/"]')
+                if shop_link:
+                    match = re.search(r"/shop/([^/?#]+)", shop_link.get("href", ""), re.I)
+                    if match:
+                        shop_name = match.group(1)
+            if not shop_name:
+                shop_name = scope.get("data-shop-name", "") if hasattr(scope, "get") else ""
 
         image_url = ""
         if scope is not None:

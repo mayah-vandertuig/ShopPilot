@@ -71,7 +71,6 @@ def _ai_context(analysis: Analysis, listings: list, competitors: list, issues: l
       {"trend_name": t.trend_name, "opportunity": t.opportunity}
       for t in trends[:5]
     ],
-    "output_language": "en",
   }
 
 

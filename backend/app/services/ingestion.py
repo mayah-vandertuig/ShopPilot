@@ -109,6 +109,8 @@ class IngestionService:
             raise IngestionError(block_reason)
 
         parsed = adapter.enrich_shop_listings(adapter.parse_listings(content), shop_slug)
+        parsed = adapter.enrich_listing_tags(parsed, content)
+        parsed = adapter.enrich_listings_from_detail_pages(parsed, self.bright_data, country=country, max_listings=6)
         parsed = [listing for listing in parsed if adapter.is_valid_listing(listing)]
         if not parsed:
             raise IngestionError(
@@ -118,17 +120,33 @@ class IngestionService:
 
         warning = ""
         competitor_listings: List[ProductListingSchema] = []
-        search_query = self._etsy_competitor_search_query(shop_slug, parsed)
-        raw_competitors, _, comp_error = self.bright_data.search_marketplace("etsy", search_query, country)
-        if raw_competitors:
-            target = shop_slug.lower()
+        comp_error: str | None = None
+        target = shop_slug.lower()
+
+        queries: List[str] = []
+        primary_query = self._etsy_competitor_search_query(shop_slug, parsed)
+        if primary_query:
+            queries.append(primary_query)
+        slug_query = shop_slug.replace("-", " ").replace("_", " ").strip()
+        if slug_query and slug_query not in queries:
+            queries.append(slug_query)
+
+        for query in queries:
+            if len(competitor_listings) >= 12:
+                break
+            raw_competitors, _, error = self.bright_data.search_marketplace("etsy", query, country)
+            if error and not comp_error:
+                comp_error = error
+            if not raw_competitors:
+                continue
             for raw in raw_competitors:
                 listing = adapter.normalize_listing(raw)
                 comp_slug = adapter.normalize_shop_name(listing.shop_name).lower()
                 if comp_slug and comp_slug != target and adapter.is_valid_listing(listing):
                     competitor_listings.append(listing)
             competitor_listings = adapter.dedupe_listings(competitor_listings)
-        elif comp_error:
+
+        if comp_error and not competitor_listings:
             warning = (
                 "Shop listings loaded, but comparable Etsy search results were unavailable. "
                 "Competitor metrics may be limited."

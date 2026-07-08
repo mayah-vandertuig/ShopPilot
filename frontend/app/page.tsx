@@ -10,6 +10,7 @@ import { Select } from "@/components/ui/select";
 import { Badge, dataSourceBadgeVariant, dataSourceLabel } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { createAnalysis, getAnalyses } from "@/lib/api";
+import { ShopAnalysisForm } from "@/components/analysis/shop-analysis-form";
 import { PLATFORMS, INPUT_TYPES, COUNTRIES, CURRENCIES, type Analysis } from "@/lib/types";
 import { formatDate } from "@/lib/utils";
 import {
@@ -60,7 +61,6 @@ function inferInputType(value: string, selected: string): string {
 export default function HomePage() {
   const router = useRouter();
   const [platform, setPlatform] = useState("etsy");
-  const [shopName, setShopName] = useState("");
   const [inputType, setInputType] = useState("keyword");
   const [inputValue, setInputValue] = useState("minimalist wall art");
   const [country, setCountry] = useState("US");
@@ -84,23 +84,6 @@ export default function HomePage() {
     setError(null);
 
     try {
-      if (isEtsy) {
-        const trimmedShop = shopName.trim();
-        if (!trimmedShop) {
-          setError("Enter an Etsy shop name to analyze.");
-          return;
-        }
-        const result = await createAnalysis({
-          platform: "etsy",
-          input_type: "shop_name",
-          input_value: trimmedShop,
-          country,
-          currency,
-        });
-        router.push(`/analyses/${result.id}`);
-        return;
-      }
-
       const resolvedInputType = inferInputType(inputValue, inputType);
       if (resolvedInputType !== inputType) {
         setInputType(resolvedInputType);
@@ -121,7 +104,7 @@ export default function HomePage() {
   };
 
   const otherHint = OTHER_PLATFORM_HINTS[inputType] ?? OTHER_PLATFORM_HINTS.keyword;
-  const canSubmit = isEtsy ? Boolean(shopName.trim()) : Boolean(inputValue.trim());
+  const canSubmit = Boolean(inputValue.trim());
 
   return (
     <Shell title="Overview" subtitle="AI marketplace intelligence for online sellers">
@@ -151,65 +134,57 @@ export default function HomePage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
-              <Field label="Platform">
-                <Select value={platform} onChange={(e) => setPlatform(e.target.value)}>
-                  {PLATFORMS.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
-                </Select>
-              </Field>
-
-              {isEtsy ? (
-                <Field label="Etsy shop name">
-                  <Input
-                    value={shopName}
-                    onChange={(e) => setShopName(e.target.value)}
-                    placeholder="ArtStudioCo"
-                  />
-                  <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed">
-                    Paste the shop slug, full shop URL, or @handle — we&apos;ll fetch the shop for you.
-                  </p>
+            {isEtsy ? (
+              <div className="space-y-5">
+                <Field label="Platform">
+                  <Select value={platform} onChange={(e) => setPlatform(e.target.value)}>
+                    {PLATFORMS.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
+                  </Select>
                 </Field>
-              ) : (
-                <>
-                  <Field label="Input type">
-                    <Select value={inputType} onChange={(e) => setInputType(e.target.value)}>
-                      {INPUT_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
-                    </Select>
-                  </Field>
-                  <Field label={otherHint.label}>
-                    <Input
-                      value={inputValue}
-                      onChange={(e) => setInputValue(e.target.value)}
-                      placeholder={otherHint.placeholder}
-                    />
-                    <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed">{otherHint.hint}</p>
-                  </Field>
-                </>
-              )}
-
-              <Field label="Country">
-                <Select value={country} onChange={(e) => setCountry(e.target.value)}>
-                  {COUNTRIES.map((c) => <option key={c} value={c}>{c}</option>)}
-                </Select>
-              </Field>
-              <Field label="Currency">
-                <Select value={currency} onChange={(e) => setCurrency(e.target.value)}>
-                  {CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}
-                </Select>
-              </Field>
-              <div className="flex items-end">
-                <Button onClick={handleAnalyze} disabled={loading || !canSubmit} className="w-full" size="lg">
-                  {loading ? (
-                    <><Loader2 className="h-4 w-4 animate-spin mr-2" />Analyzing...</>
-                  ) : isEtsy ? (
-                    "Analyze shop"
-                  ) : (
-                    "Analyze market"
-                  )}
-                </Button>
+                <ShopAnalysisForm initialCountry={country} initialCurrency={currency} />
               </div>
-            </div>
-            {error && <div className="alert-danger mt-5">{error}</div>}
+            ) : (
+              <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+                <Field label="Platform">
+                  <Select value={platform} onChange={(e) => setPlatform(e.target.value)}>
+                    {PLATFORMS.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
+                  </Select>
+                </Field>
+                <Field label="Input type">
+                  <Select value={inputType} onChange={(e) => setInputType(e.target.value)}>
+                    {INPUT_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+                  </Select>
+                </Field>
+                <Field label={otherHint.label}>
+                  <Input
+                    value={inputValue}
+                    onChange={(e) => setInputValue(e.target.value)}
+                    placeholder={otherHint.placeholder}
+                  />
+                  <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed">{otherHint.hint}</p>
+                </Field>
+                <Field label="Country">
+                  <Select value={country} onChange={(e) => setCountry(e.target.value)}>
+                    {COUNTRIES.map((c) => <option key={c} value={c}>{c}</option>)}
+                  </Select>
+                </Field>
+                <Field label="Currency">
+                  <Select value={currency} onChange={(e) => setCurrency(e.target.value)}>
+                    {CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}
+                  </Select>
+                </Field>
+                <div className="flex items-end">
+                  <Button onClick={handleAnalyze} disabled={loading || !canSubmit} className="w-full" size="lg">
+                    {loading ? (
+                      <><Loader2 className="h-4 w-4 animate-spin mr-2" />Analyzing...</>
+                    ) : (
+                      "Analyze market"
+                    )}
+                  </Button>
+                </div>
+              </div>
+            )}
+            {!isEtsy && error && <div className="alert-danger mt-5">{error}</div>}
           </CardContent>
         </Card>
 

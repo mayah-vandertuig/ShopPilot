@@ -69,7 +69,6 @@ def freeform_search(request: FreeformSearchRequest, db: Session = Depends(get_db
       for t in trends[:5]
     ],
     "listing_count": len(listings),
-    "output_language": "en",
   }
 
   agent = FreeformAgent()
