@@ -1,0 +1,755 @@
+{
+  "niche": "minimalist wall art",
+  "listings": [
+    {
+      "title": "Minimalist Mountain Line Art Canvas - Beige Wall Art",
+      "platform": "etsy",
+      "url": "https://example.com/listing/1000",
+      "shop_name": "NordicLineStudio",
+      "price": 63.4,
+      "currency": "USD",
+      "rating": 4.2,
+      "review_count": 152,
+      "image_url": "https://picsum.photos/seed/shoppilot0/400/400",
+      "description": "Beautiful minimalist mountain line art printed on premium canvas. Perfect for modern interiors.",
+      "tags": [
+        "minimalist",
+        "wall art",
+        "beige",
+        "canvas",
+        "home decor",
+        "mountain"
+      ],
+      "detected_keywords": [
+        "minimalist",
+        "beige",
+        "mountain_line_art"
+      ]
+    },
+    {
+      "title": "Abstract Abstract Face Paper Print - Black And White Wall Art",
+      "platform": "etsy",
+      "url": "https://example.com/listing/1001",
+      "shop_name": "MinimalMuse",
+      "price": 35.39,
+      "currency": "USD",
+      "rating": 4.3,
+      "review_count": 64,
+      "image_url": "https://picsum.photos/seed/shoppilot1/400/400",
+      "description": "Beautiful abstract abstract face printed on premium paper print. Perfect for modern interiors.",
+      "tags": [
+        "abstract",
+        "wall art",
+        "black",
+        "paper",
+        "home decor",
+        "abstract"
+      ],
+      "detected_keywords": [
+        "abstract",
+        "black",
+        "abstract_face"
+      ]
+    },
+    {
+      "title": "Scandinavian Botanical Leaf Framed Poster - Sage Green Wall Art",
+      "platform": "etsy",
+      "url": "https://example.com/listing/1002",
+      "shop_name": "BeigeCanvasCo",
+      "price": 66.05,
+      "currency": "USD",
+      "rating": 4.9,
+      "review_count": 56,
+      "image_url": "https://picsum.photos/seed/shoppilot2/400/400",
+      "description": "Beautiful scandinavian botanical leaf printed on premium framed poster. Perfect for modern interiors.",
+      "tags": [
+        "scandinavian",
+        "wall art",
+        "sage",
+        "framed",
+        "home decor",
+        "botanical"
+      ],
+      "detected_keywords": [
+        "scandinavian",
+        "sage",
+        "botanical_leaf"
+      ]
+    },
+    {
+      "title": "Geometric Geometric Circles Linen Texture Print - Neutral Earth Wall Art",
+      "platform": "etsy",
+      "url": "https://example.com/listing/1003",
+      "shop_name": "AbstractAura",
+      "price": 59.92,
+      "currency": "USD",
+      "rating": 4.2,
+      "review_count": 59,
+      "image_url": "https://picsum.photos/seed/shoppilot3/400/400",
+      "description": "Beautiful geometric geometric circles printed on premium linen texture print. Perfect for modern interiors.",
+      "tags": [
+        "geometric",
+        "wall art",
+        "neutral",
+        "linen",
+        "home decor",
+        "geometric"
+      ],
+      "detected_keywords": [
+        "geometric",
+        "neutral",
+        "geometric_circles"
+      ]
+    },
+    {
+      "title": "Line Art Sunrise Horizon Canvas - Terracotta Wall Art",
+      "platform": "etsy",
+      "url": "https://example.com/listing/1004",
+      "shop_name": "ScandiPrints",
+      "price": 33.52,
+      "currency": "USD",
+      "rating": 4.6,
+      "review_count": 25,
+      "image_url": "https://picsum.photos/seed/shoppilot4/400/400",
+      "description": "Beautiful line art sunrise horizon printed on premium canvas. Perfect for modern interiors.",
+      "tags": [
+        "line art",
+        "wall art",
+        "terracotta",
+        "canvas",
+        "home decor",
+        "sunrise"
+      ],
+      "detected_keywords": [
+        "line art",
+        "terracotta",
+        "sunrise_horizon"
+      ]
+    },
+    {
+      "title": "Botanical Single Line Drawing Paper Print - Soft Gray Wall Art",
+      "platform": "etsy",
+      "url": "https://example.com/listing/1005",
+      "shop_name": "LineArtLab",
+      "price": 57.85,
+      "currency": "USD",
+      "rating": 4.8,
+      "review_count": 371,
+      "image_url": "https://picsum.photos/seed/shoppilot5/400/400",
+      "description": "Beautiful botanical single line drawing printed on premium paper print. Perfect for modern interiors.",
+      "tags": [
+        "botanical",
+        "wall art",
+        "soft",
+        "paper",
+        "home decor",
+        "single"
+      ],
+      "detected_keywords": [
+        "botanical",
+        "soft",
+        "single_line_drawing"
+      ]
+    },
+    {
+      "title": "Minimalist Neutral Abstract Shapes Framed Poster - Beige Wall Art",
+      "platform": "etsy",
+      "url": "https://example.com/listing/1006",
+      "shop_name": "EarthToneArt",
+      "price": 56.69,
+      "currency": "USD",
+      "rating": 4.4,
+      "review_count": 313,
+      "image_url": "https://picsum.photos/seed/shoppilot6/400/400",
+      "description": "Beautiful minimalist neutral abstract shapes printed on premium framed poster. Perfect for modern interiors.",
+      "tags": [
+        "minimalist",
+        "wall art",
+        "beige",
+        "framed",
+        "home decor",
+        "neutral"
+      ],
+      "detected_keywords": [
+        "minimalist",
+        "beige",
+        "neutral_abstract_shapes"
+      ]
+    },
+    {
+      "title": "Abstract Scandinavian Forest Linen Texture Print - Black And White Wall Art",
+      "platform": "etsy",
+      "url": "https://example.com/listing/1007",
+      "shop_name": "GalleryNest",
+      "price": 37.75,
+      "currency": "USD",
+      "rating": 4.9,
+      "review_count": 400,
+      "image_url": "https://picsum.photos/seed/shoppilot7/400/400",
+      "description": "Beautiful abstract scandinavian forest printed on premium linen texture print. Perfect for modern interiors.",
+      "tags": [
+        "abstract",
+        "wall art",
+        "black",
+        "linen",
+        "home decor",
+        "scandinavian"
+      ],
+      "detected_keywords": [
+        "abstract",
+        "black",
+        "scandinavian_forest"
+      ]
+    },
+    {
+      "title": "Scandinavian Mountain Line Art Canvas - Sage Green Wall Art",
+      "platform": "etsy",
+      "url": "https://example.com/listing/1008",
+      "shop_name": "QuietSpaceDecor",
+      "price": 75.21,
+      "currency": "USD",
+      "rating": 4.8,
+      "review_count": 186,
+      "image_url": "https://picsum.photos/seed/shoppilot8/400/400",
+      "description": "Beautiful scandinavian mountain line art printed on premium canvas. Perfect for modern interiors.",
+      "tags": [
+        "scandinavian",
+        "wall art",
+        "sage",
+        "canvas",
+        "home decor",
+        "mountain"
+      ],
+      "detected_keywords": [
+        "scandinavian",
+        "sage",
+        "mountain_line_art"
+      ]
+    },
+    {
+      "title": "Geometric Abstract Face Paper Print - Neutral Earth Wall Art",
+      "platform": "etsy",
+      "url": "https://example.com/listing/1009",
+      "shop_name": "NordicLineStudio",
+      "price": 37.73,
+      "currency": "USD",
+      "rating": 4.4,
+      "review_count": 402,
+      "image_url": "https://picsum.photos/seed/shoppilot9/400/400",
+      "description": "Beautiful geometric abstract face printed on premium paper print. Perfect for modern interiors.",
+      "tags": [
+        "geometric",
+        "wall art",
+        "neutral",
+        "paper",
+        "home decor",
+        "abstract"
+      ],
+      "detected_keywords": [
+        "geometric",
+        "neutral",
+        "abstract_face"
+      ]
+    },
+    {
+      "title": "Line Art Botanical Leaf Framed Poster - Terracotta Wall Art",
+      "platform": "etsy",
+      "url": "https://example.com/listing/1010",
+      "shop_name": "MinimalMuse",
+      "price": 41.9,
+      "currency": "USD",
+      "rating": 4.3,
+      "review_count": 61,
+      "image_url": "https://picsum.photos/seed/shoppilot10/400/400",
+      "description": "Beautiful line art botanical leaf printed on premium framed poster. Perfect for modern interiors.",
+      "tags": [
+        "line art",
+        "wall art",
+        "terracotta",
+        "framed",
+        "home decor",
+        "botanical"
+      ],
+      "detected_keywords": [
+        "line art",
+        "terracotta",
+        "botanical_leaf"
+      ]
+    },
+    {
+      "title": "Botanical Geometric Circles Linen Texture Print - Soft Gray Wall Art",
+      "platform": "etsy",
+      "url": "https://example.com/listing/1011",
+      "shop_name": "BeigeCanvasCo",
+      "price": 43.49,
+      "currency": "USD",
+      "rating": 4.5,
+      "review_count": 147,
+      "image_url": "https://picsum.photos/seed/shoppilot11/400/400",
+      "description": "Beautiful botanical geometric circles printed on premium linen texture print. Perfect for modern interiors.",
+      "tags": [
+        "botanical",
+        "wall art",
+        "soft",
+        "linen",
+        "home decor",
+        "geometric"
+      ],
+      "detected_keywords": [
+        "botanical",
+        "soft",
+        "geometric_circles"
+      ]
+    },
+    {
+      "title": "Minimalist Sunrise Horizon Canvas - Beige Wall Art",
+      "platform": "etsy",
+      "url": "https://example.com/listing/1012",
+      "shop_name": "AbstractAura",
+      "price": 75.31,
+      "currency": "USD",
+      "rating": 4.8,
+      "review_count": 286,
+      "image_url": "https://picsum.photos/seed/shoppilot12/400/400",
+      "description": "Beautiful minimalist sunrise horizon printed on premium canvas. Perfect for modern interiors.",
+      "tags": [
+        "minimalist",
+        "wall art",
+        "beige",
+        "canvas",
+        "home decor",
+        "sunrise"
+      ],
+      "detected_keywords": [
+        "minimalist",
+        "beige",
+        "sunrise_horizon"
+      ]
+    },
+    {
+      "title": "Abstract Single Line Drawing Paper Print - Black And White Wall Art",
+      "platform": "etsy",
+      "url": "https://example.com/listing/1013",
+      "shop_name": "ScandiPrints",
+      "price": 26.86,
+      "currency": "USD",
+      "rating": 4.9,
+      "review_count": 52,
+      "image_url": "https://picsum.photos/seed/shoppilot13/400/400",
+      "description": "Beautiful abstract single line drawing printed on premium paper print. Perfect for modern interiors.",
+      "tags": [
+        "abstract",
+        "wall art",
+        "black",
+        "paper",
+        "home decor",
+        "single"
+      ],
+      "detected_keywords": [
+        "abstract",
+        "black",
+        "single_line_drawing"
+      ]
+    },
+    {
+      "title": "Scandinavian Neutral Abstract Shapes Framed Poster - Sage Green Wall Art",
+      "platform": "etsy",
+      "url": "https://example.com/listing/1014",
+      "shop_name": "LineArtLab",
+      "price": 57.19,
+      "currency": "USD",
+      "rating": 4.9,
+      "review_count": 328,
+      "image_url": "https://picsum.photos/seed/shoppilot14/400/400",
+      "description": "Beautiful scandinavian neutral abstract shapes printed on premium framed poster. Perfect for modern interiors.",
+      "tags": [
+        "scandinavian",
+        "wall art",
+        "sage",
+        "framed",
+        "home decor",
+        "neutral"
+      ],
+      "detected_keywords": [
+        "scandinavian",
+        "sage",
+        "neutral_abstract_shapes"
+      ]
+    },
+    {
+      "title": "Geometric Scandinavian Forest Linen Texture Print - Neutral Earth Wall Art",
+      "platform": "etsy",
+      "url": "https://example.com/listing/1015",
+      "shop_name": "EarthToneArt",
+      "price": 80.87,
+      "currency": "USD",
+      "rating": 4.5,
+      "review_count": 110,
+      "image_url": "https://picsum.photos/seed/shoppilot15/400/400",
+      "description": "Beautiful geometric scandinavian forest printed on premium linen texture print. Perfect for modern interiors.",
+      "tags": [
+        "geometric",
+        "wall art",
+        "neutral",
+        "linen",
+        "home decor",
+        "scandinavian"
+      ],
+      "detected_keywords": [
+        "geometric",
+        "neutral",
+        "scandinavian_forest"
+      ]
+    },
+    {
+      "title": "Line Art Mountain Line Art Canvas - Terracotta Wall Art",
+      "platform": "etsy",
+      "url": "https://example.com/listing/1016",
+      "shop_name": "GalleryNest",
+      "price": 68.02,
+      "currency": "USD",
+      "rating": 4.2,
+      "review_count": 128,
+      "image_url": "https://picsum.photos/seed/shoppilot16/400/400",
+      "description": "Beautiful line art mountain line art printed on premium canvas. Perfect for modern interiors.",
+      "tags": [
+        "line art",
+        "wall art",
+        "terracotta",
+        "canvas",
+        "home decor",
+        "mountain"
+      ],
+      "detected_keywords": [
+        "line art",
+        "terracotta",
+        "mountain_line_art"
+      ]
+    },
+    {
+      "title": "Botanical Abstract Face Paper Print - Soft Gray Wall Art",
+      "platform": "etsy",
+      "url": "https://example.com/listing/1017",
+      "shop_name": "QuietSpaceDecor",
+      "price": 72.89,
+      "currency": "USD",
+      "rating": 5.0,
+      "review_count": 449,
+      "image_url": "https://picsum.photos/seed/shoppilot17/400/400",
+      "description": "Beautiful botanical abstract face printed on premium paper print. Perfect for modern interiors.",
+      "tags": [
+        "botanical",
+        "wall art",
+        "soft",
+        "paper",
+        "home decor",
+        "abstract"
+      ],
+      "detected_keywords": [
+        "botanical",
+        "soft",
+        "abstract_face"
+      ]
+    },
+    {
+      "title": "Minimalist Botanical Leaf Framed Poster - Beige Wall Art",
+      "platform": "etsy",
+      "url": "https://example.com/listing/1018",
+      "shop_name": "NordicLineStudio",
+      "price": 34.53,
+      "currency": "USD",
+      "rating": 4.3,
+      "review_count": 154,
+      "image_url": "https://picsum.photos/seed/shoppilot18/400/400",
+      "description": "Beautiful minimalist botanical leaf printed on premium framed poster. Perfect for modern interiors.",
+      "tags": [
+        "minimalist",
+        "wall art",
+        "beige",
+        "framed",
+        "home decor",
+        "botanical"
+      ],
+      "detected_keywords": [
+        "minimalist",
+        "beige",
+        "botanical_leaf"
+      ]
+    },
+    {
+      "title": "Abstract Geometric Circles Linen Texture Print - Black And White Wall Art",
+      "platform": "etsy",
+      "url": "https://example.com/listing/1019",
+      "shop_name": "MinimalMuse",
+      "price": 50.19,
+      "currency": "USD",
+      "rating": 4.9,
+      "review_count": 95,
+      "image_url": "https://picsum.photos/seed/shoppilot19/400/400",
+      "description": "Beautiful abstract geometric circles printed on premium linen texture print. Perfect for modern interiors.",
+      "tags": [
+        "abstract",
+        "wall art",
+        "black",
+        "linen",
+        "home decor",
+        "geometric"
+      ],
+      "detected_keywords": [
+        "abstract",
+        "black",
+        "geometric_circles"
+      ]
+    },
+    {
+      "title": "Scandinavian Sunrise Horizon Canvas - Sage Green Wall Art",
+      "platform": "etsy",
+      "url": "https://example.com/listing/1020",
+      "shop_name": "BeigeCanvasCo",
+      "price": 44.28,
+      "currency": "USD",
+      "rating": 4.4,
+      "review_count": 148,
+      "image_url": "https://picsum.photos/seed/shoppilot20/400/400",
+      "description": "Beautiful scandinavian sunrise horizon printed on premium canvas. Perfect for modern interiors.",
+      "tags": [
+        "scandinavian",
+        "wall art",
+        "sage",
+        "canvas",
+        "home decor",
+        "sunrise"
+      ],
+      "detected_keywords": [
+        "scandinavian",
+        "sage",
+        "sunrise_horizon"
+      ]
+    },
+    {
+      "title": "Geometric Single Line Drawing Paper Print - Neutral Earth Wall Art",
+      "platform": "etsy",
+      "url": "https://example.com/listing/1021",
+      "shop_name": "AbstractAura",
+      "price": 67.83,
+      "currency": "USD",
+      "rating": 4.7,
+      "review_count": 48,
+      "image_url": "https://picsum.photos/seed/shoppilot21/400/400",
+      "description": "Beautiful geometric single line drawing printed on premium paper print. Perfect for modern interiors.",
+      "tags": [
+        "geometric",
+        "wall art",
+        "neutral",
+        "paper",
+        "home decor",
+        "single"
+      ],
+      "detected_keywords": [
+        "geometric",
+        "neutral",
+        "single_line_drawing"
+      ]
+    },
+    {
+      "title": "Line Art Neutral Abstract Shapes Framed Poster - Terracotta Wall Art",
+      "platform": "etsy",
+      "url": "https://example.com/listing/1022",
+      "shop_name": "ScandiPrints",
+      "price": 61.25,
+      "currency": "USD",
+      "rating": 4.3,
+      "review_count": 385,
+      "image_url": "https://picsum.photos/seed/shoppilot22/400/400",
+      "description": "Beautiful line art neutral abstract shapes printed on premium framed poster. Perfect for modern interiors.",
+      "tags": [
+        "line art",
+        "wall art",
+        "terracotta",
+        "framed",
+        "home decor",
+        "neutral"
+      ],
+      "detected_keywords": [
+        "line art",
+        "terracotta",
+        "neutral_abstract_shapes"
+      ]
+    },
+    {
+      "title": "Botanical Scandinavian Forest Linen Texture Print - Soft Gray Wall Art",
+      "platform": "etsy",
+      "url": "https://example.com/listing/1023",
+      "shop_name": "LineArtLab",
+      "price": 35.38,
+      "currency": "USD",
+      "rating": 4.6,
+      "review_count": 150,
+      "image_url": "https://picsum.photos/seed/shoppilot23/400/400",
+      "description": "Beautiful botanical scandinavian forest printed on premium linen texture print. Perfect for modern interiors.",
+      "tags": [
+        "botanical",
+        "wall art",
+        "soft",
+        "linen",
+        "home decor",
+        "scandinavian"
+      ],
+      "detected_keywords": [
+        "botanical",
+        "soft",
+        "scandinavian_forest"
+      ]
+    },
+    {
+      "title": "Minimalist Mountain Line Art Canvas - Beige Wall Art",
+      "platform": "etsy",
+      "url": "https://example.com/listing/1024",
+      "shop_name": "EarthToneArt",
+      "price": 88.26,
+      "currency": "USD",
+      "rating": 4.7,
+      "review_count": 297,
+      "image_url": "https://picsum.photos/seed/shoppilot24/400/400",
+      "description": "Beautiful minimalist mountain line art printed on premium canvas. Perfect for modern interiors.",
+      "tags": [
+        "minimalist",
+        "wall art",
+        "beige",
+        "canvas",
+        "home decor",
+        "mountain"
+      ],
+      "detected_keywords": [
+        "minimalist",
+        "beige",
+        "mountain_line_art"
+      ]
+    },
+    {
+      "title": "Abstract Abstract Face Paper Print - Black And White Wall Art",
+      "platform": "etsy",
+      "url": "https://example.com/listing/1025",
+      "shop_name": "GalleryNest",
+      "price": 33.59,
+      "currency": "USD",
+      "rating": 4.5,
+      "review_count": 405,
+      "image_url": "https://picsum.photos/seed/shoppilot25/400/400",
+      "description": "Beautiful abstract abstract face printed on premium paper print. Perfect for modern interiors.",
+      "tags": [
+        "abstract",
+        "wall art",
+        "black",
+        "paper",
+        "home decor",
+        "abstract"
+      ],
+      "detected_keywords": [
+        "abstract",
+        "black",
+        "abstract_face"
+      ]
+    },
+    {
+      "title": "Scandinavian Botanical Leaf Framed Poster - Sage Green Wall Art",
+      "platform": "etsy",
+      "url": "https://example.com/listing/1026",
+      "shop_name": "QuietSpaceDecor",
+      "price": 73.1,
+      "currency": "USD",
+      "rating": 4.4,
+      "review_count": 28,
+      "image_url": "https://picsum.photos/seed/shoppilot26/400/400",
+      "description": "Beautiful scandinavian botanical leaf printed on premium framed poster. Perfect for modern interiors.",
+      "tags": [
+        "scandinavian",
+        "wall art",
+        "sage",
+        "framed",
+        "home decor",
+        "botanical"
+      ],
+      "detected_keywords": [
+        "scandinavian",
+        "sage",
+        "botanical_leaf"
+      ]
+    },
+    {
+      "title": "Geometric Geometric Circles Linen Texture Print - Neutral Earth Wall Art",
+      "platform": "etsy",
+      "url": "https://example.com/listing/1027",
+      "shop_name": "NordicLineStudio",
+      "price": 75.16,
+      "currency": "USD",
+      "rating": 4.5,
+      "review_count": 45,
+      "image_url": "https://picsum.photos/seed/shoppilot27/400/400",
+      "description": "Beautiful geometric geometric circles printed on premium linen texture print. Perfect for modern interiors.",
+      "tags": [
+        "geometric",
+        "wall art",
+        "neutral",
+        "linen",
+        "home decor",
+        "geometric"
+      ],
+      "detected_keywords": [
+        "geometric",
+        "neutral",
+        "geometric_circles"
+      ]
+    },
+    {
+      "title": "Line Art Sunrise Horizon Canvas - Terracotta Wall Art",
+      "platform": "etsy",
+      "url": "https://example.com/listing/1028",
+      "shop_name": "MinimalMuse",
+      "price": 32.98,
+      "currency": "USD",
+      "rating": 5.0,
+      "review_count": 379,
+      "image_url": "https://picsum.photos/seed/shoppilot28/400/400",
+      "description": "Beautiful line art sunrise horizon printed on premium canvas. Perfect for modern interiors.",
+      "tags": [
+        "line art",
+        "wall art",
+        "terracotta",
+        "canvas",
+        "home decor",
+        "sunrise"
+      ],
+      "detected_keywords": [
+        "line art",
+        "terracotta",
+        "sunrise_horizon"
+      ]
+    },
+    {
+      "title": "Botanical Single Line Drawing Paper Print - Soft Gray Wall Art",
+      "platform": "etsy",
+      "url": "https://example.com/listing/1029",
+      "shop_name": "BeigeCanvasCo",
+      "price": 40.34,
+      "currency": "USD",
+      "rating": 4.7,
+      "review_count": 214,
+      "image_url": "https://picsum.photos/seed/shoppilot29/400/400",
+      "description": "Beautiful botanical single line drawing printed on premium paper print. Perfect for modern interiors.",
+      "tags": [
+        "botanical",
+        "wall art",
+        "soft",
+        "paper",
+        "home decor",
+        "single"
+      ],
+      "detected_keywords": [
+        "botanical",
+        "soft",
+        "single_line_drawing"
+      ]
+    }
+  ]
+}
