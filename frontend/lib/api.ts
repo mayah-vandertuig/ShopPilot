@@ -11,29 +11,59 @@ import type {
 } from "./types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const ANALYSIS_REQUEST_TIMEOUT_MS = 180_000;
 
-async function fetchApi<T>(path: string, options?: RequestInit): Promise<T> {
-  const res = await fetch(`${API_URL}${path}`, {
-    ...options,
-    headers: { "Content-Type": "application/json", ...options?.headers },
-  });
-  if (!res.ok) {
-    let message = `API error ${res.status}`;
-    try {
-      const data = await res.json();
-      if (typeof data.detail === "string") message = data.detail;
-      else if (Array.isArray(data.detail)) message = data.detail.map((d: { msg?: string }) => d.msg).filter(Boolean).join(", ");
-    } catch {
-      const text = await res.text();
-      if (text) message = text;
+type FetchApiOptions = RequestInit & {
+  timeoutMs?: number;
+};
+
+async function fetchApi<T>(path: string, options?: FetchApiOptions): Promise<T> {
+  const { timeoutMs, ...fetchOptions } = options ?? {};
+  const controller = timeoutMs && typeof AbortController !== "undefined" ? new AbortController() : null;
+  const timeoutId =
+    timeoutMs && controller
+      ? setTimeout(() => controller.abort(), timeoutMs)
+      : null;
+
+  try {
+    const res = await fetch(`${API_URL}${path}`, {
+      ...fetchOptions,
+      signal: controller?.signal,
+      headers: { "Content-Type": "application/json", ...fetchOptions.headers },
+    });
+    if (!res.ok) {
+      let message = `API error ${res.status}`;
+      try {
+        const data = await res.json();
+        if (typeof data.detail === "string") message = data.detail;
+        else if (Array.isArray(data.detail)) {
+          message = data.detail.map((d: { msg?: string }) => d.msg).filter(Boolean).join(", ");
+        }
+      } catch {
+        const text = await res.text();
+        if (text) message = text;
+      }
+      throw new Error(message);
     }
-    throw new Error(message);
+    return res.json();
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw new Error(
+        "Analysis timed out after 3 minutes. Etsy scraping can be slow — try again, or check Bright Data in Settings."
+      );
+    }
+    throw error;
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
   }
-  return res.json();
 }
 
 export async function createAnalysis(data: AnalysisCreateRequest): Promise<AnalysisDetail> {
-  return fetchApi("/api/analyses", { method: "POST", body: JSON.stringify(data) });
+  return fetchApi("/api/analyses", {
+    method: "POST",
+    body: JSON.stringify(data),
+    timeoutMs: ANALYSIS_REQUEST_TIMEOUT_MS,
+  });
 }
 
 export async function getAnalyses(): Promise<Analysis[]> {

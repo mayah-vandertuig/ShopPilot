@@ -104,6 +104,11 @@ export function ShopAnalysisForm({
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Analyze shop"}
           </Button>
         </div>
+        {loading && (
+          <p className="text-sm text-muted-foreground">
+            Scraping Etsy via Bright Data — usually 1–2 minutes, up to 3 minutes for large shops.
+          </p>
+        )}
         {error && <div className="alert-danger">{error}</div>}
       </form>
     );
@@ -161,7 +166,7 @@ export function ShopAnalysisForm({
           </Select>
         </Field>
 
-        <div className="flex items-end md:col-span-2 lg:col-span-3">
+        <div className="flex items-end md:col-span-2 lg:col-span-3 flex-col gap-2 sm:flex-row sm:items-center">
           <Button type="submit" disabled={loading || !shopName.trim()} className="w-full sm:w-auto" size="lg">
             {loading ? (
               <>
@@ -172,6 +177,11 @@ export function ShopAnalysisForm({
               "Analyze shop"
             )}
           </Button>
+          {loading && (
+            <p className="text-sm text-muted-foreground">
+              Scraping Etsy via Bright Data — usually 1–2 minutes, up to 3 minutes for large shops.
+            </p>
+          )}
         </div>
       </div>
       {error && <div className="alert-danger">{error}</div>}

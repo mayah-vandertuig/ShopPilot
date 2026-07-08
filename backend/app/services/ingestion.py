@@ -12,7 +12,6 @@ from app.config import get_settings
 from app.exceptions import IngestionError
 from app.schemas import InputType, ProductListingSchema
 from app.services.bright_data import BrightDataService
-from app.services.mock_marketplace import USER_SHOP, mock_competitor_search_results, mock_shop_analysis_bundle
 
 logger = logging.getLogger(__name__)
 
@@ -224,8 +223,10 @@ class IngestionService:
         finalize = getattr(adapter, "finalize_listings", lambda listings: listings)
 
         if self.bright_data.is_available:
-            for query in queries:
-                if len(competitor_listings) >= 40:
+            for query in queries[:3]:
+                if len(competitor_listings) >= 24:
+                    break
+                if len(self._distinct_competitor_shops(competitor_listings, user_shop_keys)) >= 4:
                     break
                 raw_listings, source, error, comp_warning = self.bright_data.search_marketplace(
                     platform,
@@ -234,13 +235,12 @@ class IngestionService:
                     currency=currency,
                     language=language,
                     locale=locale,
+                    fast=True,
                 )
                 if comp_warning and not warning:
                     warning = comp_warning
                 if not raw_listings:
                     continue
-                if source == "mock" and data_source != "mock":
-                    data_source = "mock"
                 for position, raw in enumerate(raw_listings):
                     listing = adapter.normalize_listing(raw)
                     if not is_valid(listing):
@@ -274,27 +274,15 @@ class IngestionService:
         )
 
         if not distinct_shops:
-            competitor_listings = mock_competitor_search_results(
-                platform=platform,
-                queries=queries,
-                currency=currency,
-                exclude_shop=shop_slug,
-            )
-            for listing in competitor_listings:
-                listing.listing_source = "competitor_search"
-                listing.raw_data = {
-                    **(listing.raw_data or {}),
-                    "listing_source": "competitor_search",
-                }
-            data_source = "mock"
             warning = warning or (
-                "Discovered competitors loaded from mock marketplace data because live search results were unavailable."
+                "Marketplace search did not return enough similar competitor shops. "
+                "Only live search results are used for competitor discovery."
             )
             logger.info(
-                "Using mock competitor listings shop=%s count=%d shops=%d",
+                "No distinct competitor shops found shop=%s scraped=%d queries=%s",
                 shop_slug,
-                len(competitor_listings),
-                len(self._distinct_competitor_shops(competitor_listings, user_shop_keys)),
+                scraped_count,
+                queries[:3],
             )
 
         return competitor_listings, warning, data_source, queries
@@ -325,20 +313,7 @@ class IngestionService:
         )
 
         if not self.bright_data.is_available:
-            user_listings, competitor_listings = mock_shop_analysis_bundle(
-                shop_name=shop_slug or USER_SHOP,
-                platform=platform,
-                currency=currency,
-            )
-            queries = generate_competitor_queries(user_listings, shop_slug)
-            return CollectionResult(
-                listings=user_listings,
-                data_source="mock",
-                warning="Using mock shop and discovered competitor data because Bright Data is unavailable.",
-                competitor_listings=competitor_listings,
-                user_shop_keys=self._user_shop_keys(shop_slug, user_listings),
-                generated_queries=queries,
-            )
+            raise IngestionError(self.bright_data.unavailable_reason())
 
         content, source, error, locale_warning = self.bright_data.scrape_url(
             shop_url,
@@ -349,66 +324,30 @@ class IngestionService:
             locale=locale,
         )
         if not content:
-            user_listings, competitor_listings = mock_shop_analysis_bundle(
-                shop_name=shop_slug or USER_SHOP,
-                platform=platform,
-                currency=currency,
-            )
-            queries = generate_competitor_queries(user_listings, shop_slug)
-            return CollectionResult(
-                listings=user_listings,
-                data_source="mock",
-                warning=error or "Failed to scrape shop page. Using mock discovered competitor data.",
-                competitor_listings=competitor_listings,
-                user_shop_keys=self._user_shop_keys(shop_slug, user_listings),
-                generated_queries=queries,
-            )
+            raise IngestionError(error or "Failed to scrape shop page")
 
         block_reason = adapter.detect_block_page(content)
         if block_reason:
-            user_listings, competitor_listings = mock_shop_analysis_bundle(
-                shop_name=shop_slug,
-                platform=platform,
-                currency=currency,
-            )
-            queries = generate_competitor_queries(user_listings, shop_slug)
-            return CollectionResult(
-                listings=user_listings,
-                data_source="mock",
-                warning=f"{block_reason} Using mock shop and discovered competitor data.",
-                competitor_listings=competitor_listings,
-                user_shop_keys=self._user_shop_keys(shop_slug, user_listings),
-                generated_queries=queries,
-            )
+            raise IngestionError(block_reason)
 
         parsed = adapter.enrich_shop_listings(adapter.parse_listings(content), shop_slug)
         parsed = adapter.enrich_listing_tags(parsed, content)
-        parsed = adapter.enrich_listings_from_detail_pages(
-            parsed,
-            self.bright_data,
-            country=country,
-            currency=currency,
-            language=language,
-            locale=locale,
-            max_listings=6,
-        )
+        if any(not listing.tags for listing in parsed):
+            parsed = adapter.enrich_listings_from_detail_pages(
+                parsed,
+                self.bright_data,
+                country=country,
+                currency=currency,
+                language=language,
+                locale=locale,
+                max_listings=2,
+                fast=True,
+            )
         parsed = [listing for listing in parsed if adapter.is_valid_listing(listing)]
         if not parsed:
-            user_listings, competitor_listings = mock_shop_analysis_bundle(
-                shop_name=shop_slug or USER_SHOP,
-                platform=platform,
-                currency=currency,
-            )
-            queries = generate_competitor_queries(user_listings, shop_slug)
-            return CollectionResult(
-                listings=user_listings,
-                data_source="mock",
-                warning=(
-                    "Live shop page could not be parsed. Using mock shop and discovered competitor data."
-                ),
-                competitor_listings=competitor_listings,
-                user_shop_keys=self._user_shop_keys(shop_slug, user_listings),
-                generated_queries=queries,
+            raise IngestionError(
+                "Live shop page could not be parsed. "
+                "The marketplace HTML may have changed or blocked the request."
             )
 
         warning = locale_warning or ""

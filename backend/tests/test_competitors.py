@@ -24,3 +24,31 @@ def test_ignores_listings_without_shop_name():
   result = analyze_competitors(listings, 1, "etsy")
   assert len(result) == 1
   assert result[0]["competitor_name"] == "Shop2"
+
+
+def test_merges_shop_name_variants_by_slug():
+  listings = [
+    ProductListingSchema(
+      platform="etsy",
+      title="Minimalist Print",
+      shop_name="Modern Print Lab",
+      price=20,
+      review_count=5,
+      tags=["minimalist wall art"],
+      listing_source="competitor_search",
+    ),
+    ProductListingSchema(
+      platform="etsy",
+      title="Neutral Poster",
+      shop_name="ModernPrintLab",
+      price=24,
+      review_count=8,
+      tags=["neutral wall art"],
+      listing_source="competitor_search",
+    ),
+  ]
+  result = analyze_competitors(listings, 1, "etsy")
+  assert len(result) == 1
+  assert result[0]["product_count"] == 2
+  assert result[0]["competitor_name"] == "ModernPrintLab"
+  assert "minimalist wall art" in result[0]["common_keywords"]

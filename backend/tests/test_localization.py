@@ -116,9 +116,9 @@ def test_search_marketplace_returns_locale_warning_for_spanish_content(monkeypat
             language="en-US",
         )
 
-    assert error is None
+    assert error is not None or not listings
     assert warning is not None
     assert LOCALE_MISMATCH_WARNING in warning
-    assert source in {"live", "mock"}
+    assert source == "failed"
 
     get_settings.cache_clear()

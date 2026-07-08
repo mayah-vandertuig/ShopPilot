@@ -60,7 +60,7 @@ export default function CompetitorDetailPage() {
 
       <div className="grid gap-4 md:grid-cols-4">
         <StatCard label="Match score" value={`${detail.match_score.toFixed(0)}/100`} />
-        <StatCard label="Products found" value={String(detail.product_count)} />
+        <StatCard label="Listings matched" value={String(detail.product_count)} />
         <StatCard label="Average price" value={formatCurrency(detail.average_price)} />
         <StatCard
           label="Review strength"

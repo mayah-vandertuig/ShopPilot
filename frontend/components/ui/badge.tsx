@@ -8,7 +8,6 @@ const variants = {
   outline: "border border-border text-muted-foreground bg-white",
   platform: "bg-slate-100 text-slate-700 border border-slate-200",
   live: "bg-emerald-50 text-success border border-emerald-200",
-  mock: "bg-amber-50 text-warning border border-amber-200",
   fallback: "bg-sky-50 text-sky-700 border border-sky-200",
 };
 
@@ -31,15 +30,15 @@ export function Badge({
 
 export function dataSourceBadgeVariant(source?: string): keyof typeof variants {
   if (source === "live") return "live";
-  if (source === "mock") return "mock";
   if (source === "fallback") return "fallback";
+  if (source === "mock") return "warning";
   return "outline";
 }
 
 export function dataSourceLabel(source?: string): string {
   if (source === "live") return "Bright Data · Live";
-  if (source === "mock") return "Mock Data";
   if (source === "fallback") return "Fallback";
+  if (source === "mock") return "Legacy analysis — re-run for live data";
   if (!source) return "Unknown";
   return source.charAt(0).toUpperCase() + source.slice(1);
 }

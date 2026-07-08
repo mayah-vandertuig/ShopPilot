@@ -47,7 +47,7 @@ export default function SettingsPage() {
               <SettingValue label="Default language" value={settings?.default_language || "en-US"} />
               <SettingValue label="Default locale" value={settings?.default_locale || "en_US"} />
               <SettingValue label="Default currency" value={settings?.default_currency || "USD"} />
-              <SettingValue label="Data mode" value={settings?.data_mode === "live" ? "Bright Data live with mock fallback" : "Mock data"} />
+              <SettingValue label="Data mode" value={settings?.data_mode === "live" ? "Bright Data live" : "Bright Data unavailable"} />
               <SettingValue label="Database status" value={settings?.database_status || "unknown"} />
             </CardContent>
           </Card>
@@ -85,7 +85,7 @@ export default function SettingsPage() {
         </Card>
 
         <div className="alert-info">
-          Configure variables in <code className="text-xs bg-muted px-1.5 py-0.5 rounded">.env</code> at the project root, then restart the backend. The app runs without API keys using mock marketplace data for Etsy shop analysis.
+          Configure variables in <code className="text-xs bg-muted px-1.5 py-0.5 rounded">.env</code> at the project root, then restart the backend. Bright Data is required for live marketplace scraping.
         </div>
       </div>
     </Shell>

@@ -13,7 +13,7 @@ export default function CompetitorsPage() {
     <div className="space-y-6">
       <PageIntro
         title="Discovered competitors"
-        description="Similar shops inferred from your catalog themes and marketplace search results."
+        description="Similar shops found via Etsy search using themes from your catalog. Counts reflect listings matched in this analysis, not full shop catalogs."
       />
       <CompetitorTable
         competitors={competitors}

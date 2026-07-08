@@ -10,7 +10,6 @@ from app.config import get_settings
 from app.services.localization import (
     detect_unexpected_locale,
     is_poor_parse_quality,
-    mock_listings_for_query,
 )
 from app.services.marketplace_url import normalize_marketplace_url
 
@@ -19,7 +18,9 @@ logger = logging.getLogger(__name__)
 # Bright Data SDK default timeout is 30s — too low for Etsy.
 CLIENT_TIMEOUT = 180
 SCRAPE_POLL_TIMEOUT = 180
+FAST_SCRAPE_POLL_TIMEOUT = 45
 UNLOCKER_TIMEOUT = 120
+FAST_UNLOCKER_TIMEOUT = 45
 CRAWLER_POLL_TIMEOUT = 180
 ETSY_PRODUCTS_DATASET_ID = "gd_ltppk0jdv1jqz25mz"
 
@@ -171,7 +172,7 @@ class BrightDataService:
     result = client.crawler.download(job.snapshot_id, poll_timeout=CRAWLER_POLL_TIMEOUT)
     return _content_from_crawl_result(result)
 
-  def _try_unlocker(self, client: Any, url: str, country: str, mode: str) -> Tuple[str, Optional[str]]:
+  def _try_unlocker(self, client: Any, url: str, country: str, mode: str, fast: bool = False) -> Tuple[str, Optional[str]]:
     country_code = (country or self.settings.default_country or "US").upper()
     if country_code == "UK":
       country_code = "GB"
@@ -181,9 +182,9 @@ class BrightDataService:
       "mode": mode,
     }
     if mode == "sync":
-      kwargs["timeout"] = UNLOCKER_TIMEOUT
+      kwargs["timeout"] = FAST_UNLOCKER_TIMEOUT if fast else UNLOCKER_TIMEOUT
     else:
-      kwargs["poll_timeout"] = SCRAPE_POLL_TIMEOUT
+      kwargs["poll_timeout"] = FAST_SCRAPE_POLL_TIMEOUT if fast else SCRAPE_POLL_TIMEOUT
 
     result = client.scrape_url(url, **kwargs)
     return _content_from_scrape_result(result)
@@ -196,6 +197,7 @@ class BrightDataService:
     language: str = "",
     currency: str = "",
     locale: str = "",
+    fast: bool = False,
   ) -> Tuple[str, str, Optional[str], Optional[str]]:
     """Scrape URL. Returns (content, data_source, error_message, locale_warning)."""
     country, language, currency, locale = self._resolve_locale(country, language, currency, locale)
@@ -208,6 +210,8 @@ class BrightDataService:
       return "", "failed", sdk_error, None
 
     attempts = self._attempts_for_url(url, platform)
+    if fast:
+      attempts = attempts[:1]
     errors: List[str] = []
     prepared_url = self._prepare_scrape_url(url, platform, country, language, currency, locale)
 
@@ -220,9 +224,9 @@ class BrightDataService:
             elif attempt == "crawler_async":
               content, error = self._try_crawler_async(client, prepared_url)
             elif attempt == "unlocker_async":
-              content, error = self._try_unlocker(client, prepared_url, country, mode="async")
+              content, error = self._try_unlocker(client, prepared_url, country, mode="async", fast=fast)
             else:
-              content, error = self._try_unlocker(client, prepared_url, country, mode="sync")
+              content, error = self._try_unlocker(client, prepared_url, country, mode="sync", fast=fast)
 
             if content:
               locale_warning = detect_unexpected_locale(content, language)
@@ -250,6 +254,11 @@ class BrightDataService:
       return "", "failed", msg, None
 
     summary = "; ".join(errors) if errors else "All Bright Data scrape strategies returned empty content"
+    if "timeout" in summary.lower() or "polling timeout" in summary.lower():
+      summary = (
+        f"{summary} Etsy pages can be slow — Bright Data retried with longer timeouts. "
+        "Try again in a moment if the marketplace was under load."
+      )
     return "", "failed", summary, None
 
   def search_marketplace(
@@ -260,6 +269,7 @@ class BrightDataService:
     currency: str = "",
     language: str = "",
     locale: str = "",
+    fast: bool = False,
   ) -> Tuple[List[dict], str, Optional[str], Optional[str]]:
     from app.adapters import get_adapter
 
@@ -280,6 +290,7 @@ class BrightDataService:
       language=language,
       currency=currency,
       locale=locale,
+      fast=fast,
     )
     if not content:
       return [], "failed", error, locale_warning
@@ -287,23 +298,15 @@ class BrightDataService:
     listings = adapter.dedupe_listings(adapter.parse_listings(content))
     warning = locale_warning
     if warning and is_poor_parse_quality(listings):
-      logger.warning("Falling back to mock listings after poor parse quality for %s", platform)
-      listings = mock_listings_for_query(platform, query, currency=currency)
-      source = "mock"
-      warning = f"{warning} Using mock fallback data because parsing quality was poor."
+      logger.warning("Poor parse quality for %s search query=%s", platform, query)
+      return [], "failed", (
+        f"{warning} Parsed listings failed quality checks."
+      ), warning
 
     if not listings:
       block_reason = getattr(adapter, "detect_block_page", lambda _content: None)(content)
       if block_reason:
         return [], "failed", block_reason, warning
-      if warning:
-        listings = mock_listings_for_query(platform, query, currency=currency)
-        return (
-          [listing.model_dump() for listing in listings],
-          "mock",
-          None,
-          f"{warning} Using mock fallback data because parsing quality was poor.",
-        )
       return [], "failed", (
         "Live page was scraped but the adapter could not parse listings. "
         "The marketplace HTML may have changed or blocked the request."

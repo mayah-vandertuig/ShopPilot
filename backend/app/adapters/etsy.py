@@ -195,6 +195,7 @@ class EtsyAdapter(BaseMarketplaceAdapter):
         language: str = DEFAULT_ETSY_LANGUAGE,
         locale: str = "en_US",
         max_listings: int = 8,
+        fast: bool = False,
     ) -> List[ProductListingSchema]:
         if bright_data is None or not getattr(bright_data, "is_available", False):
             return self.finalize_listings(listings)
@@ -211,6 +212,7 @@ class EtsyAdapter(BaseMarketplaceAdapter):
                 language=language,
                 currency=currency,
                 locale=locale,
+                fast=fast,
             )
             if not content or error:
                 continue

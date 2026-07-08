@@ -4,11 +4,11 @@ import json
 import logging
 import math
 import re
-from collections import Counter, defaultdict
+from collections import Counter
 from typing import Dict, List, Optional, Set
 
 from app.analysis.competitor_discovery import extract_user_keywords
-from app.analysis.keywords import _tokenize
+from app.analysis.keywords import STOPWORDS, _tokenize
 from app.schemas import ProductListingSchema
 
 logger = logging.getLogger(__name__)
@@ -40,6 +40,39 @@ def _is_competitor_search_listing(listing: ProductListingSchema) -> bool:
 
 def _shop_key(name: str) -> str:
     return re.sub(r"[\s_\-]+", "", (name or "").lower())
+
+
+def _pick_display_name(current: str, candidate: str) -> str:
+    current = (current or "").strip()
+    candidate = (candidate or "").strip()
+    if not current:
+        return candidate
+    if not candidate:
+        return current
+    # Prefer Etsy-style shop slugs (no spaces) over title-cased display labels.
+    if " " in current and " " not in candidate:
+        return candidate
+    if len(candidate) > len(current):
+        return candidate
+    return current
+
+
+def _top_shop_keywords(listings: List[ProductListingSchema], token_counts: Counter) -> List[str]:
+    tag_counts: Counter = Counter()
+    for listing in listings:
+        for tag in listing.tags:
+            cleaned = re.sub(r"\s+", " ", str(tag).strip())
+            if len(cleaned) >= 3:
+                tag_counts[cleaned.lower()] += 1
+    if tag_counts:
+        return [tag for tag, _ in tag_counts.most_common(6)]
+
+    words = [
+        word
+        for word, _ in token_counts.most_common(12)
+        if len(word) >= 4 and word not in STOPWORDS
+    ]
+    return words[:6]
 
 
 def _price_similarity(user_avg: float, competitor_avg: float) -> float:
@@ -129,29 +162,35 @@ def analyze_competitors(
     user_prices = [listing.price for listing in user_listings if listing.price > 0]
     user_avg_price = sum(user_prices) / len(user_prices) if user_prices else 0.0
 
-    shops: Dict[str, dict] = defaultdict(lambda: {
-        "listings": [],
-        "prices": [],
-        "reviews": 0,
-        "ratings": [],
-        "keywords": Counter(),
-        "matched_queries": Counter(),
-        "positions": [],
-        "urls": [],
-        "titles": [],
-        "platform": platform,
-    })
+    shops: Dict[str, dict] = {}
 
     for listing in listings:
         if not _is_competitor_search_listing(listing):
             continue
         shop = (listing.shop_name or "").strip()
-        if not shop or _shop_key(shop) in exclude_shop_keys:
+        shop_key = _shop_key(shop)
+        if not shop_key or shop_key in exclude_shop_keys:
             continue
         if shop.lower() in {"unknown shop", "etsy", "sample shop"}:
             continue
 
-        bucket = shops[shop]
+        if shop_key not in shops:
+            shops[shop_key] = {
+                "display_name": shop,
+                "listings": [],
+                "prices": [],
+                "reviews": 0,
+                "ratings": [],
+                "keywords": Counter(),
+                "matched_queries": Counter(),
+                "positions": [],
+                "urls": [],
+                "titles": [],
+                "platform": platform,
+            }
+
+        bucket = shops[shop_key]
+        bucket["display_name"] = _pick_display_name(bucket["display_name"], shop)
         bucket["listings"].append(listing)
         bucket["prices"].append(listing.price)
         bucket["reviews"] += listing.review_count
@@ -177,12 +216,13 @@ def analyze_competitors(
         bucket["platform"] = listing.platform or platform
 
     competitors = []
-    for name, data in shops.items():
+    for shop_key, data in shops.items():
+        name = data["display_name"]
         prices = [price for price in data["prices"] if price > 0]
         avg_price = sum(prices) / len(prices) if prices else 0.0
         ratings = data["ratings"]
         average_rating = sum(ratings) / len(ratings) if ratings else 0.0
-        common_kw = [word for word, _ in data["keywords"].most_common(8)]
+        common_kw = _top_shop_keywords(data["listings"], data["keywords"])
         matched_queries = [query for query, _ in data["matched_queries"].most_common(5)]
         keyword_overlap_ratio = _keyword_overlap(user_keywords, data["keywords"])
         price_similarity = _price_similarity(user_avg_price, avg_price)

@@ -1,7 +1,6 @@
-"""Content locale detection and mock fallback for marketplace scraping."""
+"""Content locale detection for marketplace scraping."""
 
 import logging
-import re
 from typing import List, Optional
 
 from app.schemas import ProductListingSchema
@@ -76,27 +75,3 @@ def is_poor_parse_quality(listings: List[ProductListingSchema]) -> bool:
     valid = [listing for listing in listings if listing.title and len(listing.title.strip()) >= 8]
     return len(valid) < max(1, len(listings) // 2)
 
-
-def mock_listings_for_query(platform: str, query: str, currency: str = "USD") -> List[ProductListingSchema]:
-    """Fallback sample listings when live parsing quality is poor."""
-    slug = re.sub(r"[^a-zA-Z0-9]+", "-", query.strip()).strip("-").lower() or "sample"
-    titles = [
-        f"{query.title()} Print",
-        f"Minimal {query.title()} Poster",
-        f"Handmade {query.title()} Art",
-    ]
-    listings: List[ProductListingSchema] = []
-    for index, title in enumerate(titles, start=1):
-        listings.append(
-            ProductListingSchema(
-                platform=platform,
-                title=title,
-                url=f"https://example.com/{platform}/{slug}/{index}",
-                shop_name="Sample Shop",
-                price=18.0 + index * 4,
-                currency=currency,
-                tags=[word.lower() for word in query.split() if len(word) > 3][:4],
-                detected_keywords=[word.lower() for word in query.split() if len(word) > 3],
-            )
-        )
-    return listings

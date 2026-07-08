@@ -6,7 +6,56 @@ from app.analysis.competitor_discovery import generate_competitor_queries, is_ow
 from app.analysis.competitors import analyze_competitors, compute_match_score
 from app.schemas import ProductListingSchema
 from app.services.ingestion import IngestionService
-from app.services.mock_marketplace import USER_SHOP, mock_shop_analysis_bundle
+
+USER_SHOP = "SanFranciscoStudio"
+COMPETITOR_SHOPS = ["ModernPrintLab", "NordicPosterCo", "BotanicalRoomPrints", "AbstractWallStudio"]
+
+
+def _user_shop_listings(shop_name: str = USER_SHOP) -> list[ProductListingSchema]:
+    return [
+        ProductListingSchema(
+            platform="etsy",
+            title="Minimalist Line Art Canvas Print",
+            shop_name=shop_name,
+            price=28.0,
+            tags=["minimalist", "canvas", "line art"],
+            description="Neutral minimalist wall art for living room",
+            listing_source="user_shop",
+        ),
+        ProductListingSchema(
+            platform="etsy",
+            title="Abstract Beige Wall Art Set",
+            shop_name=shop_name,
+            price=32.0,
+            tags=["abstract", "beige", "wall art"],
+            description="Beige abstract poster for bedroom decor",
+            listing_source="user_shop",
+        ),
+    ]
+
+
+def _competitor_search_listings() -> list[ProductListingSchema]:
+    listings: list[ProductListingSchema] = []
+    listing_id = 2000
+    for shop_index, shop_name in enumerate(COMPETITOR_SHOPS):
+        for offset in range(2):
+            listing_id += 1
+            listings.append(
+                ProductListingSchema(
+                    platform="etsy",
+                    title=f"Competitor listing {shop_index + 1}-{offset + 1}",
+                    shop_name=shop_name,
+                    price=24.0 + shop_index * 2 + offset,
+                    tags=["minimalist", "wall art"],
+                    listing_source="competitor_search",
+                    raw_data={
+                        "matched_query": "minimalist wall art",
+                        "search_position": listing_id - 2000,
+                        "listing_source": "competitor_search",
+                    },
+                )
+            )
+    return listings
 
 
 def _listing(
@@ -38,26 +87,7 @@ def _listing(
 
 
 def test_generate_competitor_queries_from_user_listings():
-    user_listings = [
-        ProductListingSchema(
-            platform="etsy",
-            title="Minimalist Line Art Canvas Print",
-            shop_name=USER_SHOP,
-            price=28.0,
-            tags=["minimalist", "canvas", "line art"],
-            description="Neutral minimalist wall art for living room",
-            listing_source="user_shop",
-        ),
-        ProductListingSchema(
-            platform="etsy",
-            title="Abstract Beige Wall Art Set",
-            shop_name=USER_SHOP,
-            price=32.0,
-            tags=["abstract", "beige", "wall art"],
-            description="Beige abstract poster for bedroom decor",
-            listing_source="user_shop",
-        ),
-    ]
+    user_listings = _user_shop_listings()
 
     queries = generate_competitor_queries(user_listings, USER_SHOP)
 
@@ -148,31 +178,20 @@ def test_compute_match_score_rewards_overlap_and_reviews():
     assert score >= 60
 
 
-def test_mock_shop_bundle_has_realistic_competitor_grouping():
-    user_listings, competitor_listings = mock_shop_analysis_bundle(shop_name=USER_SHOP)
-
-    assert len(user_listings) >= 8
-    assert len(competitor_listings) >= 30
-    assert len({listing.shop_name for listing in competitor_listings}) >= 6
-    assert all(listing.shop_name != USER_SHOP for listing in competitor_listings)
-    assert all(listing.listing_source == "competitor_search" for listing in competitor_listings)
-    assert all(listing.listing_source == "user_shop" for listing in user_listings)
-
-
 def test_is_own_shop_normalizes_names():
     assert is_own_shop("San-Francisco-Studio", {"sanfranciscostudio"})
     assert not is_own_shop("ModernPrintLab", {"sanfranciscostudio"})
 
 
 def test_user_shop_is_excluded_from_competitors():
-    user_listings, competitor_listings = mock_shop_analysis_bundle(shop_name=USER_SHOP)
-    mixed = competitor_listings + [
+    user_listings = _user_shop_listings()
+    competitor_listings = _competitor_search_listings() + [
         _listing("Own listing in search", USER_SHOP, query="minimalist wall art", listing_source="competitor_search"),
         _listing("Own listing user source", USER_SHOP, query="minimalist wall art", listing_source="user_shop"),
     ]
 
     result = analyze_competitors(
-        mixed,
+        competitor_listings,
         analysis_id=1,
         platform="etsy",
         user_listings=user_listings,
@@ -180,7 +199,7 @@ def test_user_shop_is_excluded_from_competitors():
     )
 
     assert USER_SHOP not in {item["competitor_name"] for item in result}
-    assert len(result) >= 6
+    assert len(result) >= 4
 
 
 def test_competitors_are_grouped_from_competitor_search_listings_only():
@@ -206,12 +225,12 @@ def test_competitors_are_grouped_from_competitor_search_listings_only():
 
 
 def test_generated_queries_are_used_to_fetch_competitor_listings(monkeypatch):
-    user_listings = mock_shop_analysis_bundle(shop_name=USER_SHOP)[0]
+    user_listings = _user_shop_listings()
     queries_seen = []
 
-    def fake_search(platform, query, country="", currency="", language="", locale=""):
+    def fake_search(platform, query, country="", currency="", language="", locale="", fast=False):
         queries_seen.append(query)
-        return [], "live", "", ""
+        return [], "failed", "No live results", ""
 
     service = IngestionService()
     service.bright_data = MagicMock()
@@ -234,11 +253,14 @@ def test_generated_queries_are_used_to_fetch_competitor_listings(monkeypatch):
 
     assert queries_seen
     assert set(queries_seen).issubset(set(queries))
-    assert len({listing.shop_name for listing in listings}) >= 6
+    assert listings == []
+    assert source == "live"
+    assert "competitor" in warning.lower()
 
 
 def test_multiple_competitor_shops_are_returned():
-    user_listings, competitor_listings = mock_shop_analysis_bundle(shop_name=USER_SHOP)
+    user_listings = _user_shop_listings()
+    competitor_listings = _competitor_search_listings()
 
     result = analyze_competitors(
         competitor_listings,
@@ -249,14 +271,14 @@ def test_multiple_competitor_shops_are_returned():
     )
 
     names = {item["competitor_name"] for item in result}
-    assert len(names) >= 6
+    assert len(names) >= 4
     assert "ModernPrintLab" in names
-    assert "NeutralGalleryCo" in names
+    assert "BotanicalRoomPrints" in names
     assert USER_SHOP not in names
 
 
 def test_empty_competitor_state_does_not_show_user_shop():
-    user_listings = mock_shop_analysis_bundle(shop_name=USER_SHOP)[0]
+    user_listings = _user_shop_listings()
     user_only_as_competitors = [
         ProductListingSchema(
             platform="etsy",

@@ -13,7 +13,7 @@ router = APIRouter(prefix="/api/settings", tags=["settings"])
 def settings_status():
     settings = get_settings()
     bright_data = BrightDataService()
-    data_mode = "live" if bright_data.is_available else "mock"
+    data_mode = "live" if bright_data.is_available else "unavailable"
 
     return SettingsStatusResponse(
         default_country=settings.default_country,

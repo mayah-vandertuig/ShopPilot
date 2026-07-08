@@ -40,7 +40,7 @@ export function CompetitorCards({
           </div>
           <div className="grid grid-cols-3 gap-2 text-center">
             <div>
-              <p className="text-xs text-muted-foreground">Products</p>
+              <p className="text-xs text-muted-foreground">Matched listings</p>
               <p className="text-sm font-semibold">{c.product_count}</p>
             </div>
             <div>
@@ -64,7 +64,6 @@ export function CompetitorTable({
   analysisId,
   generatedQueries = [],
   warning,
-  userShopName,
 }: {
   competitors: Competitor[];
   analysisId: number;
@@ -83,6 +82,13 @@ export function CompetitorTable({
 
   return (
     <div className="space-y-6">
+      {(warning) && (
+        <div className="flex items-start gap-2 text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-xl p-4">
+          <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+          <span>{warning}</span>
+        </div>
+      )}
+
       {sorted.length > 0 && (
         <div className="grid gap-4 md:grid-cols-4">
           <StatCard label="Discovered shops" value={String(sorted.length)} />
@@ -136,10 +142,10 @@ export function CompetitorTable({
                     <th className="pb-3 pr-4 font-medium">Rank</th>
                     <th className="pb-3 pr-4 font-medium">Shop</th>
                     <th className="pb-3 pr-4 font-medium">Match</th>
-                    <th className="pb-3 pr-4 font-medium">Products</th>
+                    <th className="pb-3 pr-4 font-medium">Matched listings</th>
                     <th className="pb-3 pr-4 font-medium">Avg price</th>
                     <th className="pb-3 pr-4 font-medium">Reviews</th>
-                    <th className="pb-3 pr-4 font-medium">Keywords</th>
+                    <th className="pb-3 pr-4 font-medium">Tags / themes</th>
                     <th className="pb-3 pr-4 font-medium">Matched queries</th>
                     <th className="pb-3 font-medium"></th>
                   </tr>
@@ -157,6 +163,7 @@ export function CompetitorTable({
                       <td className="py-3.5 pr-4">
                         {c.total_reviews.toLocaleString()}
                         {c.average_rating > 0 ? ` · ${c.average_rating.toFixed(1)}★` : ""}
+                        <span className="block text-[11px] text-muted-foreground">across matched listings</span>
                       </td>
                       <td className="py-3.5 pr-4 text-muted-foreground">{(c.common_keywords ?? []).slice(0, 4).join(", ") || "—"}</td>
                       <td className="py-3.5 pr-4 text-muted-foreground">{(c.matched_queries ?? []).slice(0, 2).join(", ") || "—"}</td>

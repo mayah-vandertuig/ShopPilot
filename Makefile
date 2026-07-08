@@ -1,4 +1,4 @@
-.PHONY: install install-backend install-frontend dev backend frontend test lint format docker-up docker-down
+.PHONY: install install-backend install-frontend dev stop backend frontend test lint format docker-up docker-down
 
 BACKEND_DIR = backend
 VENV_PY = $(BACKEND_DIR)/.venv/bin/python
@@ -16,8 +16,12 @@ install-frontend:
 	cd frontend && npm install
 
 dev:
-	@chmod +x scripts/dev.sh
+	@chmod +x scripts/dev.sh scripts/stop.sh
 	@./scripts/dev.sh
+
+stop:
+	@chmod +x scripts/stop.sh
+	@./scripts/stop.sh
 
 backend:
 	@test -x $(VENV_PY) || (echo "Run 'make install-backend' first." && exit 1)

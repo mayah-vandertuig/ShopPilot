@@ -40,7 +40,7 @@ export default function AIAdvisorPage() {
         </Badge>
         {!settings?.openai_configured && (
           <span className="text-sm text-muted-foreground">
-            Add OPENAI_API_KEY to enable live AI recommendations. Mock expansion ideas are still available from analysis.
+            Add OPENAI_API_KEY to enable live AI recommendations. Saved analysis insights remain available without OpenAI.
           </span>
         )}
       </div>

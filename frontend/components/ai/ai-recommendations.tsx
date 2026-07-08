@@ -105,7 +105,7 @@ export function AIRecommendations({
         )}
         {disabled && recommendations.length === 0 && (
           <p className="text-sm text-muted-foreground text-center py-8">
-            OpenAI is not configured. Pre-seeded expansion ideas may still appear after analysis; add OPENAI_API_KEY to generate live recommendations.
+            OpenAI is not configured. Add OPENAI_API_KEY to generate live recommendations from your analysis data.
           </p>
         )}
       </CardContent>
