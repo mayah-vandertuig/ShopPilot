@@ -98,6 +98,36 @@ def test_parse_listings_from_markdown_links():
   assert "frame" in listings[0].title.lower()
 
 
+def test_parse_listings_filters_junk_titles():
+  adapter = EtsyAdapter()
+  html = """
+  <html><body>
+    <a href="https://www.etsy.com/listing/12345/real-product-title-here">
+      <h3 class="wt-text-caption">Minimalist Wall Art Print on Canvas</h3>
+    </a>
+    <a href="https://www.etsy.com/listing/99999/favorite">
+      <h3>Add to favorites</h3>
+    </a>
+  </body></html>
+  """
+  listings = adapter.parse_listings(html)
+  assert len(listings) == 1
+  assert "Wall Art" in listings[0].title
+
+
+def test_enrich_shop_listings_sets_shop_name():
+  adapter = EtsyAdapter()
+  listings = [
+    adapter._listing_from_record({
+      "title": "Sample listing title here",
+      "url": "https://www.etsy.com/listing/1/sample",
+      "price": 10,
+    })
+  ]
+  enriched = adapter.enrich_shop_listings(listings, "ArtStudioCo")
+  assert enriched[0].shop_name == "ArtStudioCo"
+
+
 def test_parse_listings_from_nested_embedded_json():
   adapter = EtsyAdapter()
   payload = {

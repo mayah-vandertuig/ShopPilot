@@ -6,6 +6,8 @@ from contextlib import contextmanager
 from typing import Any, Iterator, List, Optional, Tuple
 from urllib.parse import urlparse
 
+from app.adapters.etsy import with_etsy_locale
+
 from app.config import get_settings
 
 logger = logging.getLogger(__name__)
@@ -165,22 +167,23 @@ class BrightDataService:
 
     attempts = self._attempts_for_url(url, platform)
     errors: List[str] = []
+    scrape_url = with_etsy_locale(url, country=country) if _is_etsy_url(url) else url
 
     try:
       with _sync_client(self.settings.bright_data_token) as client:
         for attempt in attempts:
           try:
             if attempt == "etsy_dataset":
-              content, error = self._try_etsy_dataset(client, url)
+              content, error = self._try_etsy_dataset(client, scrape_url)
             elif attempt == "crawler_async":
-              content, error = self._try_crawler_async(client, url)
+              content, error = self._try_crawler_async(client, scrape_url)
             elif attempt == "unlocker_async":
-              content, error = self._try_unlocker(client, url, country, mode="async")
+              content, error = self._try_unlocker(client, scrape_url, country, mode="async")
             else:
-              content, error = self._try_unlocker(client, url, country, mode="sync")
+              content, error = self._try_unlocker(client, scrape_url, country, mode="sync")
 
             if content:
-              logger.info("Bright Data scrape succeeded via %s for %s", attempt, url)
+              logger.info("Bright Data scrape succeeded via %s for %s", attempt, scrape_url)
               return content, "live", None
 
             message = error or "empty response"

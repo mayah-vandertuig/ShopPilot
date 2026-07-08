@@ -21,7 +21,13 @@ export function ListingDetail({ listing, onClose }: { listing: Listing; onClose:
         </div>
         <div className="p-6 space-y-6">
           {listing.image_url && (
-            <img src={listing.image_url} alt={listing.title} className="w-full rounded-xl border border-border object-cover max-h-56" />
+            <div className="flex w-full items-center justify-center overflow-hidden rounded-xl border border-border bg-muted/20 p-3">
+              <img
+                src={listing.image_url}
+                alt={listing.title}
+                className="max-h-80 w-full object-contain"
+              />
+            </div>
           )}
           <div>
             <h4 className="text-lg font-semibold text-foreground leading-snug">{listing.title}</h4>

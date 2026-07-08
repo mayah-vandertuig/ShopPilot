@@ -17,14 +17,62 @@ from app.schemas import (
   KeywordSummary,
   ListingRead,
   PricingSummary,
+  RecommendationRead,
 )
 from app.exceptions import IngestionError
 from app.services.analysis_runner import AnalysisRunner
-from app.agents.listing_advisor import ListingAdvisorAgent
 from app.agents.product_expansion_agent import ProductExpansionAgent
-from app.services.ai import AIService
+from app.services.ai import AIService, _normalize_confidence
 
 router = APIRouter(prefix="/api/analyses", tags=["analyses"])
+
+
+def _listing_for_ai(listing: Listing) -> dict:
+  return {
+    "title": listing.title,
+    "price": listing.price,
+    "shop_name": listing.shop_name,
+    "rating": listing.rating,
+    "review_count": listing.review_count,
+    "tags": listing.tags,
+    "detected_keywords": listing.detected_keywords,
+  }
+
+
+def _ai_context(analysis: Analysis, listings: list, competitors: list, issues: list, trends: list) -> dict:
+  return {
+    "platform": analysis.platform,
+    "input_type": analysis.input_type,
+    "input_value": analysis.input_value,
+    "pricing_summary": json.loads(analysis.pricing_summary_json or "{}"),
+    "keyword_summary": json.loads(analysis.keyword_summary_json or "{}"),
+    "listing_count": len(listings),
+    "listings": [_listing_for_ai(l) for l in listings[:15]],
+    "competitors": [
+      {
+        "competitor_name": c.competitor_name,
+        "average_price": c.average_price,
+        "product_count": c.product_count,
+        "common_keywords": c.common_keywords,
+        "positioning_summary": c.positioning_summary,
+      }
+      for c in competitors[:10]
+    ],
+    "listing_issues": [
+      {
+        "category": i.category,
+        "issue": i.issue,
+        "suggestion": i.suggestion,
+        "severity": i.severity,
+      }
+      for i in issues[:10]
+    ],
+    "trends": [
+      {"trend_name": t.trend_name, "opportunity": t.opportunity}
+      for t in trends[:5]
+    ],
+    "output_language": "en",
+  }
 
 
 def _analysis_to_detail(analysis: Analysis, db: Session, warning: str = None) -> AnalysisDetail:
@@ -60,7 +108,7 @@ def _analysis_to_detail(analysis: Analysis, db: Session, warning: str = None) ->
       positioning_summary=c.positioning_summary,
     ) for c in competitors],
     listing_issues=issues,
-    recommendations=recommendations,
+    recommendations=[RecommendationRead.model_validate(r) for r in recommendations],
     trends=trends,
     warning=warning,
   )
@@ -108,30 +156,32 @@ def generate_recommendations(analysis_id: int, db: Session = Depends(get_db)):
     raise HTTPException(status_code=404, detail="Analysis not found")
 
   listings = db.query(Listing).filter(Listing.analysis_id == analysis_id).all()
-  competitors = db.query(Competitor).filter(Competitor.analysis_id == analysis_id).all()
-  pricing = json.loads(analysis.pricing_summary_json or "{}")
-  keywords = json.loads(analysis.keyword_summary_json or "{}")
+  if not listings:
+    raise HTTPException(
+      status_code=422,
+      detail="No listings in this analysis. Run a shop or product analysis with scraped data first.",
+    )
 
-  advisor = ListingAdvisorAgent()
+  competitors = db.query(Competitor).filter(Competitor.analysis_id == analysis_id).all()
+  issues = db.query(ListingIssue).filter(ListingIssue.analysis_id == analysis_id).all()
+  trends = db.query(Trend).filter(Trend.analysis_id == analysis_id).all()
+
   expansion = ProductExpansionAgent()
   ai = AIService()
-
-  context = {
-    "listings": [{"title": l.title, "price": l.price, "shop_name": l.shop_name} for l in listings[:10]],
-    "competitors": [{"competitor_name": c.competitor_name, "average_price": c.average_price} for c in competitors],
-    "pricing_summary": pricing,
-    "keyword_summary": keywords,
-  }
+  context = _ai_context(analysis, listings, competitors, issues, trends)
 
   try:
     recs = ai.generate_listing_recommendations(context)
   except IngestionError as e:
     raise HTTPException(status_code=422, detail=e.message) from e
+
   expansion_result = expansion.expand(
-    [{"title": l.title, "price": l.price} for l in listings],
-    [],
+    [_listing_for_ai(l) for l in listings],
+    [{"trend_name": t.trend_name, "opportunity": t.opportunity} for t in trends],
     [{"competitor_name": c.competitor_name} for c in competitors],
   )
+
+  db.query(Recommendation).filter(Recommendation.analysis_id == analysis_id).delete()
 
   new_recs = []
   for r in recs:
@@ -140,7 +190,7 @@ def generate_recommendations(analysis_id: int, db: Session = Depends(get_db)):
       category=r.get("category", "general"),
       recommendation=r.get("recommendation", ""),
       reasoning=r.get("reasoning", ""),
-      confidence=r.get("confidence", 0.5),
+      confidence=_normalize_confidence(r.get("confidence")),
     )
     db.add(rec)
     new_recs.append(rec)
@@ -151,17 +201,17 @@ def generate_recommendations(analysis_id: int, db: Session = Depends(get_db)):
       category="product_expansion",
       recommendation=idea.get("idea", ""),
       reasoning=idea.get("rationale", ""),
-      confidence=idea.get("confidence", 0.5),
+      confidence=_normalize_confidence(idea.get("confidence")),
     )
     db.add(rec)
     new_recs.append(rec)
 
   db.commit()
+  for rec in new_recs:
+    db.refresh(rec)
+
   return {
-    "recommendations": [
-      {"category": r.category, "recommendation": r.recommendation, "reasoning": r.reasoning, "confidence": r.confidence}
-      for r in new_recs
-    ],
+    "recommendations": [RecommendationRead.model_validate(r) for r in new_recs],
     "expansion": expansion_result,
     "data_source": "live",
   }

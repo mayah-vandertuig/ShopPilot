@@ -27,12 +27,15 @@ export function AnalysisLayout({ children }: { children: React.ReactNode }) {
   const [analysis, setAnalysis] = useState<AnalysisDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const load = useCallback(() => {
+  const load = useCallback(async () => {
     if (!id) return;
     setError(null);
-    getAnalysis(id)
-      .then(setAnalysis)
-      .catch(() => setError("Failed to load analysis. Is the backend running?"));
+    try {
+      const data = await getAnalysis(id);
+      setAnalysis(data);
+    } catch {
+      setError("Failed to load analysis. Is the backend running?");
+    }
   }, [id]);
 
   useEffect(() => {

@@ -22,13 +22,18 @@ class AnalysisRunner:
     self.ingestion = IngestionService()
 
   def run(self, db: Session, request: AnalysisCreate) -> Analysis:
-    listings_data, data_source, warning = self.ingestion.collect(
+    collected = self.ingestion.collect(
       request.platform,
       InputType(request.input_type),
       request.input_value,
       request.country,
     )
-    listings_data = normalize_listings(listings_data, request.currency)
+    listings_data = normalize_listings(collected.listings, request.currency)
+    competitor_listings = (
+      normalize_listings(collected.competitor_listings, request.currency)
+      if collected.competitor_listings
+      else []
+    )
 
     analysis = Analysis(
       platform=request.platform,
@@ -37,7 +42,7 @@ class AnalysisRunner:
       country=request.country,
       currency=request.currency,
       status="completed",
-      data_source=data_source,
+      data_source=collected.data_source,
     )
     db.add(analysis)
     db.flush()
@@ -65,11 +70,14 @@ class AnalysisRunner:
     db.flush()
 
     pricing = calculate_pricing_summary(listings_data)
-    keywords = extract_keywords(listings_data)
+    keywords = extract_keywords(
+      listings_data,
+      competitor_listings=competitor_listings or None,
+    )
     analysis.pricing_summary_json = pricing.model_dump_json()
     analysis.keyword_summary_json = keywords.model_dump_json()
 
-    comp_data = analyze_competitors(listings_data, analysis.id, request.platform)
+    comp_data = analyze_competitors(competitor_listings, analysis.id, request.platform) if competitor_listings else []
     for c in comp_data:
       db.add(Competitor(
         analysis_id=analysis.id,
@@ -87,7 +95,7 @@ class AnalysisRunner:
     for issue in issues:
       db.add(ListingIssue(**issue))
 
-    trends = detect_trends(listings_data, analysis.id)
+    trends = detect_trends(listings_data + competitor_listings, analysis.id)
     for t in trends:
       db.add(Trend(**t))
 
@@ -103,5 +111,5 @@ class AnalysisRunner:
 
     db.commit()
     db.refresh(analysis)
-    analysis._warning = warning
+    analysis._warning = collected.warning
     return analysis

@@ -4,7 +4,7 @@ import html
 import json
 import re
 from typing import Any, List
-from urllib.parse import quote_plus, urlparse
+from urllib.parse import parse_qs, quote_plus, urlencode, urlparse, urlunparse
 
 from bs4 import BeautifulSoup
 
@@ -17,6 +17,23 @@ MARKDOWN_LINK_RE = re.compile(
     r"\[([^\]]+)\]\((https?://(?:www\.)?etsy\.com/listing/\d+[^)]*)\)",
     re.I,
 )
+JUNK_TITLE_RE = re.compile(
+    r"^(add to|favorite|favourite|etsy|shop all|see more|view all|cart|help|sign in|register|search)",
+    re.I,
+)
+MIN_TITLE_LENGTH = 8
+ETSY_LOCALE = "en-US"
+
+
+def with_etsy_locale(url: str, country: str = "") -> str:
+    parsed = urlparse(url)
+    query = parse_qs(parsed.query, keep_blank_values=True)
+    if "locale_override" not in query:
+        query["locale_override"] = [ETSY_LOCALE]
+    if country and "ship_to" not in query:
+        query["ship_to"] = [country]
+    flat = {key: values[0] for key, values in query.items() if values}
+    return urlunparse(parsed._replace(query=urlencode(flat)))
 
 
 class EtsyAdapter(BaseMarketplaceAdapter):
@@ -26,7 +43,8 @@ class EtsyAdapter(BaseMarketplaceAdapter):
     supports_keyword_search = True
 
     def build_search_url(self, query: str, country: str) -> str:
-        return f"https://www.etsy.com/search?q={quote_plus(query)}&ship_to={country}"
+        url = f"https://www.etsy.com/search?q={quote_plus(query)}"
+        return with_etsy_locale(url, country=country)
 
     def normalize_shop_name(self, value: str) -> str:
         value = value.strip()
@@ -42,11 +60,11 @@ class EtsyAdapter(BaseMarketplaceAdapter):
 
         return value.strip().strip("/")
 
-    def build_shop_url(self, shop_name: str) -> str:
+    def build_shop_url(self, shop_name: str, country: str = "US") -> str:
         slug = self.normalize_shop_name(shop_name)
         if not slug:
             raise ValueError("Etsy shop name is required")
-        return f"https://www.etsy.com/shop/{slug}"
+        return with_etsy_locale(f"https://www.etsy.com/shop/{slug}", country=country)
 
     @staticmethod
     def detect_block_page(raw_content: str) -> str | None:
@@ -78,7 +96,29 @@ class EtsyAdapter(BaseMarketplaceAdapter):
         listings.extend(self._parse_markdown_listings(raw_content))
         listings.extend(self._parse_html_cards(soup))
 
-        return self._dedupe(listings)
+        return self.dedupe_listings(listings)
+
+    def dedupe_listings(self, listings: List[ProductListingSchema]) -> List[ProductListingSchema]:
+        return self._dedupe([listing for listing in listings if self.is_valid_listing(listing)])
+
+    def enrich_shop_listings(self, listings: List[ProductListingSchema], shop_slug: str) -> List[ProductListingSchema]:
+        display_name = shop_slug.replace("-", " ").strip()
+        for listing in listings:
+            if not listing.shop_name or listing.shop_name.lower() in {"unknown shop", "etsy"}:
+                listing.shop_name = display_name
+        return listings
+
+    def is_valid_listing(self, listing: ProductListingSchema) -> bool:
+        if not self._listing_key(listing.url):
+            return False
+        title = re.sub(r"\s+", " ", (listing.title or "").strip())
+        if len(title) < MIN_TITLE_LENGTH:
+            return False
+        if JUNK_TITLE_RE.search(title):
+            return False
+        if title.lower() in {"etsy listing", "listing"}:
+            return False
+        return True
 
     def _load_json(self, text: str) -> Any:
         try:
@@ -421,17 +461,23 @@ class EtsyAdapter(BaseMarketplaceAdapter):
         if not title:
             title = link.get("title") or link.get("aria-label") or link.get_text(" ", strip=True)
         title = re.sub(r"\s+", " ", title).strip()
-        if not title or len(title) < 3:
+        if not self.is_valid_listing(ProductListingSchema(platform=self.platform_name, title=title, url=url)):
             return None
 
         price = 0.0
         if scope is not None:
             price_el = scope.select_one(
-                ".lc-price, .n-listing-card__price, .currency-value, [data-price], .wt-text-title-01"
+                ".lc-price, .n-listing-card__price, .currency-value, [data-price], .wt-text-title-01, .wt-screen-reader-only + .currency-value"
             )
             if price_el:
                 parsed = self._parse_price_value(price_el.get_text(" ", strip=True))
                 price = parsed or 0.0
+            if price <= 0:
+                for candidate in scope.select(".currency-value, .lc-price, .wt-text-title-01"):
+                    parsed = self._parse_price_value(candidate.get_text(" ", strip=True))
+                    if parsed and parsed > 0:
+                        price = parsed
+                        break
 
         shop_name = ""
         if scope is not None:

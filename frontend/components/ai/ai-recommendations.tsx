@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { generateRecommendations } from "@/lib/api";
+import { useAnalysis } from "@/lib/analysis-context";
 import type { Recommendation } from "@/lib/types";
 import { Sparkles, Loader2, Tag, DollarSign, Type, Package, ArrowRight } from "lucide-react";
 
@@ -18,23 +19,37 @@ const categoryMeta: Record<string, { icon: React.ComponentType<{ className?: str
   general: { icon: Sparkles, label: "Recommendation" },
 };
 
+function formatConfidence(value: number): string {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return "—";
+  const pct = n > 1 ? Math.round(n) : Math.round(n * 100);
+  return `${pct}%`;
+}
+
 export function AIRecommendations({
   analysisId,
   recommendations: initial,
+  disabled = false,
 }: {
   analysisId: number;
   recommendations: Recommendation[];
+  disabled?: boolean;
 }) {
+  const { refresh } = useAnalysis();
   const [recommendations, setRecommendations] = useState(initial);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setRecommendations(initial);
+  }, [initial]);
 
   const handleGenerate = async () => {
     setLoading(true);
     setError(null);
     try {
-      const result = await generateRecommendations(analysisId) as { recommendations?: Recommendation[] };
-      setRecommendations(result.recommendations || []);
+      await generateRecommendations(analysisId);
+      await refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to generate recommendations");
     } finally {
@@ -52,7 +67,7 @@ export function AIRecommendations({
           </CardTitle>
           <p className="text-sm text-muted-foreground mt-1">Grounded suggestions from your collected market data.</p>
         </div>
-        <Button onClick={handleGenerate} disabled={loading} size="sm">
+        <Button onClick={handleGenerate} disabled={loading || disabled} size="sm">
           {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Generate"}
         </Button>
       </CardHeader>
@@ -73,19 +88,24 @@ export function AIRecommendations({
                     <Badge variant="outline" className="mt-1">{rec.category}</Badge>
                   </div>
                 </div>
-                <span className="text-xs font-medium text-muted-foreground">{Math.round(rec.confidence * 100)}% confidence</span>
+                <span className="text-xs font-medium text-muted-foreground">{formatConfidence(rec.confidence)} confidence</span>
               </div>
               <p className="text-sm font-medium text-foreground leading-relaxed">{rec.recommendation}</p>
-              <p className="text-sm text-muted-foreground mt-2">{rec.reasoning}</p>
+              {rec.reasoning && <p className="text-sm text-muted-foreground mt-2">{rec.reasoning}</p>}
               <div className="flex items-center gap-1 mt-4 text-xs font-medium text-primary opacity-0 group-hover:opacity-100 transition-opacity">
                 Action insight <ArrowRight className="h-3 w-3" />
               </div>
             </div>
           );
         })}
-        {recommendations.length === 0 && !error && (
+        {recommendations.length === 0 && !error && !disabled && (
           <p className="text-sm text-muted-foreground text-center py-8">
             Click Generate for AI-powered title, tag, pricing, and expansion recommendations.
+          </p>
+        )}
+        {disabled && (
+          <p className="text-sm text-muted-foreground text-center py-8">
+            Scrape listing data first — the AI advisor needs products from your analysis.
           </p>
         )}
       </CardContent>

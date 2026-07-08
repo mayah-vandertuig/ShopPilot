@@ -19,6 +19,8 @@ def analyze_competitors(listings: List[ProductListingSchema], analysis_id: int, 
 
   competitors = []
   for name, data in shops.items():
+    if name.lower() in {"unknown shop", "etsy", ""}:
+      continue
     prices = [p for p in data["prices"] if p > 0]
     avg_price = sum(prices) / len(prices) if prices else 0
     kw_counts: dict = {}
